@@ -96,38 +96,57 @@ function orientationFactor(
   const elev = elevDeg * DEG2RAD;
   const az = azDeg * DEG2RAD;
 
-  // Plane-of-array irradiance factor (simplified Hay-Davies-like)
+  // cos(AOI) on a tilted surface = beam component
   // cos(AOI) = sin(elev)*cos(tilt) + cos(elev)*sin(tilt)*cos(sun_az - surface_az)
-  const cosAOI = (tiltDeg: number, surfaceAzDeg: number) => {
+  const beamFactor = (tiltDeg: number, surfaceAzDeg: number) => {
     const t = tiltDeg * DEG2RAD;
     const sa = surfaceAzDeg * DEG2RAD;
     return Math.sin(elev) * Math.cos(t)
       + Math.cos(elev) * Math.sin(t) * Math.cos(az - sa);
   };
 
+  // Isotropic diffuse fraction on tilted surface = (1 + cos(tilt)) / 2
+  const diffuseFraction = (tiltDeg: number) => (1 + Math.cos(tiltDeg * DEG2RAD)) / 2;
+
   switch (orientation) {
     case 'south': {
-      const aoi = cosAOI(32, 180);
-      return Math.max(0, aoi);
+      const beam = Math.max(0, beamFactor(32, 180));
+      return beam;
     }
     case 'east_west': {
-      const aoiE = cosAOI(12, 90);
-      const aoiW = cosAOI(12, 270);
-      // Each half of the array captures its respective direction
-      return Math.max(0, (Math.max(0, aoiE) + Math.max(0, aoiW)) / 2);
+      // EW at 15° tilt — model each half separately
+      // Beam: only the surface facing the sun gets direct irradiance
+      // Diffuse: both surfaces get isotropic sky diffuse
+      const tilt = 15;
+      const beamE = Math.max(0, beamFactor(tilt, 90));
+      const beamW = Math.max(0, beamFactor(tilt, 270));
+      const diff = diffuseFraction(tilt); // ~0.966
+
+      // Approximate beam/diffuse split: ~70% beam, 30% diffuse in clear sky
+      const beamWeight = 0.70;
+      const diffWeight = 0.30;
+
+      const eastTotal = beamWeight * beamE + diffWeight * diff * Math.sin(elev);
+      const westTotal = beamWeight * beamW + diffWeight * diff * Math.sin(elev);
+
+      // Average of both halves of the array
+      return Math.max(0, (eastTotal + westTotal) / 2);
     }
     case 'south_east': {
-      const aoi = cosAOI(28, 150);
-      return Math.max(0, aoi);
+      // SE at 25° tilt, azimuth 135° (true south-east)
+      const beam = Math.max(0, beamFactor(25, 135));
+      return beam;
     }
     case 'south_west': {
-      const aoi = cosAOI(28, 210);
-      return Math.max(0, aoi);
+      // SW at 25° tilt, azimuth 225° (true south-west)
+      const beam = Math.max(0, beamFactor(25, 225));
+      return beam;
     }
     default:
-      return Math.max(0, cosAOI(32, 180));
+      return Math.max(0, beamFactor(32, 180));
   }
 }
+
 
 // ─── Main Profile Generator ─────────────────────────────────────────────────
 
@@ -213,19 +232,19 @@ export function getOrientationInfo(orientation: Orientation): {
     },
     east_west: {
       label: 'East-West',
-      description: 'Dual-orientation with ~12° tilt. Flatter generation curve, broader morning/evening distribution, lower clipping.',
+      description: 'Dual-orientation at ~15° tilt. Flatter generation curve, broader morning/evening production, lower clipping.',
       yieldKWhKWp: 970,
-      peakCharacter: 'Broad twin shoulders',
+      peakCharacter: 'Broad flat-top plateau',
     },
     south_east: {
       label: 'South-East',
-      description: 'Modules face SE at ~28° tilt. Morning-biased generation curve, reduced afternoon clipping.',
+      description: 'Modules face SE (135°) at ~25° tilt. Morning-biased generation, earlier peak.',
       yieldKWhKWp: 1020,
       peakCharacter: 'Morning-shifted peak',
     },
     south_west: {
       label: 'South-West',
-      description: 'Modules face SW at ~28° tilt. Afternoon-biased generation curve, later revenue capture.',
+      description: 'Modules face SW (225°) at ~25° tilt. Afternoon-biased generation, later revenue capture.',
       yieldKWhKWp: 1020,
       peakCharacter: 'Afternoon-shifted peak',
     },
