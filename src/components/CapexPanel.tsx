@@ -41,6 +41,14 @@ export const CapexPanel: React.FC<Props> = ({ config, onChange }) => {
             onChange={v => update('opexPerMWYear', parseFloat(v) * 1000 || 0)} />
           <Row label="Discount Rate" value={(config.discountRate * 100).toFixed(1)} unit="%"
             onChange={v => update('discountRate', parseFloat(v) / 100 || 0)} />
+
+          <div className="border-t border-cyan-500/20 pt-2 mt-2">
+            <div className="text-[9px] font-bold text-cyan-400/60 uppercase tracking-wider mb-2">BESS Economics</div>
+            <Row label="BESS Storage" value={(config.bessCapexPerMWh / 1000).toFixed(0)} unit="k€/MWh"
+              onChange={v => update('bessCapexPerMWh', parseFloat(v) * 1000 || 0)} />
+            <Row label="BESS Power" value={(config.bessCapexPerMW / 1000).toFixed(0)} unit="k€/MW"
+              onChange={v => update('bessCapexPerMW', parseFloat(v) * 1000 || 0)} />
+          </div>
         </div>
       )}
 

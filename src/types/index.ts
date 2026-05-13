@@ -2,6 +2,7 @@
 export type OptimizationMode = 'ac_fixed' | 'dc_fixed' | 'free';
 export type RevenueMode = 'market' | 'tariff' | 'hybrid';
 export type Orientation = 'south' | 'east_west' | 'south_east' | 'south_west';
+export type BessDuration = 'none' | '2h' | '4h';
 
 // ─── Project Configuration ───────────────────────────────────────────────────
 export interface ProjectConfig {
@@ -29,6 +30,14 @@ export interface PriceConfig {
   priceSource: string;           // label: 'sample' | 'csv' | 'api'
 }
 
+// ─── BESS Configuration ──────────────────────────────────────────────────────
+export interface BessConfig {
+  duration: BessDuration;        // 'none', '2h', '4h'
+  powerMW: number;               // BESS power rating in MW (charge/discharge)
+  roundTripEfficiency: number;   // e.g. 0.88 = 88%
+  maxCycles: number;             // max daily full-equivalent cycles
+}
+
 // ─── Optional CAPEX/Economics ────────────────────────────────────────────────
 export interface CapexConfig {
   enabled: boolean;
@@ -36,6 +45,8 @@ export interface CapexConfig {
   capexPerMWacAC: number;        // EUR/MWac for inverter+trafo+grid
   opexPerMWYear: number;         // EUR/MW/year
   discountRate: number;          // e.g. 0.05 = 5%
+  bessCapexPerMWh: number;       // EUR/MWh storage capacity
+  bessCapexPerMW: number;        // EUR/MW power electronics
 }
 
 // ─── Scenario Result (one DC/AC ratio point) ─────────────────────────────────
@@ -81,10 +92,17 @@ export interface ScenarioResult {
   simplePaybackYears?: number;
   annualCashflows?: number[];
 
+  // BESS metrics
+  bessRecoveredMWh: number;      // lifetime energy recovered from clipping by BESS
+  bessRevenueMarket: number;     // additional lifetime market revenue from BESS
+  bessRevenueTariff: number;     // additional lifetime tariff revenue from BESS
+  annualBessRecoveredMWh: number; // year-1 BESS recovered
+
   // Hourly data for charts (year 1 only, for perf)
   hourlyGenerated?: number[];    // 8760 values
   hourlyInjected?: number[];     // 8760 values
   hourlyClipped?: number[];      // 8760 values
+  hourlyBessDischarge?: number[]; // 8760 values
 }
 
 // ─── Full App State ──────────────────────────────────────────────────────────
@@ -124,10 +142,19 @@ export const DEFAULT_PRICE: PriceConfig = {
   priceSource: 'sample',
 };
 
+export const DEFAULT_BESS: BessConfig = {
+  duration: 'none',
+  powerMW: 25,
+  roundTripEfficiency: 0.88,
+  maxCycles: 1,
+};
+
 export const DEFAULT_CAPEX: CapexConfig = {
   enabled: false,
   capexPerMWpDC: 450000,
   capexPerMWacAC: 120000,
   opexPerMWYear: 12000,
   discountRate: 0.05,
+  bessCapexPerMWh: 250000,
+  bessCapexPerMW: 150000,
 };

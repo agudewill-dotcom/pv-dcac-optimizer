@@ -64,20 +64,27 @@ export const ResultsDashboard: React.FC<Props> = ({ scenarios, selectedRatio, re
         {showTariff && (
           <KPI label="Lifetime Revenue (Tariff)" value={fmtM(current.lifetimeRevenueTariff)} accent="blue" />
         )}
+        {current.bessRecoveredMWh > 0 && (
+          <KPI label="BESS Recovered" value={`${fmt(current.bessRecoveredMWh)} MWh`} accent="cyan" />
+        )}
+        {current.bessRevenueMarket > 0 && showMarket && (
+          <KPI label="BESS Revenue (incl.)" value={fmtM(current.bessRevenueMarket)} accent="cyan" />
+        )}
       </div>
     </div>
   );
 };
 
 const KPI: React.FC<{
-  label: string; value: string; accent?: 'emerald' | 'blue' | 'amber'; sub?: string;
+  label: string; value: string; accent?: 'emerald' | 'blue' | 'amber' | 'cyan'; sub?: string;
 }> = ({ label, value, accent }) => (
   <div className="bg-slate-900/50 border border-white/5 rounded-xl p-3">
     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</div>
     <div className={`text-sm font-bold ${
       accent === 'emerald' ? 'text-emerald-400' :
       accent === 'blue' ? 'text-blue-400' :
-      accent === 'amber' ? 'text-amber-400' : 'text-white'
+      accent === 'amber' ? 'text-amber-400' :
+      accent === 'cyan' ? 'text-cyan-400' : 'text-white'
     }`}>
       {value}
     </div>

@@ -1,18 +1,19 @@
 /**
  * optimization.ts — DC/AC ratio scenario comparison
  *
- * Generates a sweep of DC/AC ratios, runs clipping + revenue for each,
+ * Generates a sweep of DC/AC ratios, runs clipping + revenue + BESS for each,
  * identifies optimal scenarios, and flags warnings.
  */
 
 import type {
-  ProjectConfig, PowerConfig, PriceConfig, CapexConfig,
+  ProjectConfig, PowerConfig, PriceConfig, CapexConfig, BessConfig,
   Orientation, ScenarioResult,
 } from '../types';
 import { DEFAULT_RATIO_STEPS } from '../types';
 import { generateProfile } from './generationProfiles';
 import { simulateClipping } from './clippingEngine';
 import { calculateRevenue } from './revenueEngine';
+import { simulateBess } from './bessEngine';
 
 /**
  * Run the full DC/AC optimization sweep.
@@ -22,6 +23,7 @@ import { calculateRevenue } from './revenueEngine';
  * @param orientation - PV array orientation
  * @param price       - Price configuration
  * @param capex       - Optional CAPEX configuration
+ * @param bess        - BESS configuration
  * @returns ScenarioResult[] — one per DC/AC ratio step
  */
 export function runOptimization(
@@ -30,6 +32,7 @@ export function runOptimization(
   orientation: Orientation,
   price: PriceConfig,
   capex: CapexConfig,
+  bess: BessConfig,
 ): ScenarioResult[] {
   // Generate the hourly generation profile
   const profile = generateProfile(orientation);
@@ -41,7 +44,6 @@ export function runOptimization(
 
   switch (power.mode) {
     case 'ac_fixed': {
-      // AC is fixed, sweep DC via ratio
       for (const ratio of ratioSteps) {
         scenarios.push({
           dcMWp: power.acCapacityMWac * ratio,
@@ -52,7 +54,6 @@ export function runOptimization(
       break;
     }
     case 'dc_fixed': {
-      // DC is fixed, sweep AC via ratio
       for (const ratio of ratioSteps) {
         scenarios.push({
           dcMWp: power.dcCapacityMWp,
@@ -63,7 +64,6 @@ export function runOptimization(
       break;
     }
     case 'free': {
-      // Just the single user-defined point
       scenarios.push({
         dcMWp: power.dcCapacityMWp,
         acMWac: power.acCapacityMWac,
@@ -83,7 +83,46 @@ export function runOptimization(
       project,
     );
 
-    // Optional CAPEX
+    // ─── BESS simulation ─────────────────────────────────────────────────
+    const bessResult = simulateBess(
+      clipping.hourlyClipped,
+      clipping.hourlyInjected,
+      acMWac,
+      price.priceProfile,
+      bess,
+    );
+
+    // BESS revenue: additional revenue from dispatching stored energy
+    let bessRevenueMarket = 0;
+    let bessRevenueTariff = 0;
+    let lifetimeBessRecovered = 0;
+
+    if (bess.duration !== 'none') {
+      // Year-1 BESS revenue from dispatched energy
+      for (let h = 0; h < bessResult.hourlyBessDischarge.length; h++) {
+        const dischargeMWh = bessResult.hourlyBessDischarge[h];
+        bessRevenueMarket += dischargeMWh * (price.priceProfile[h] || 0);
+      }
+      bessRevenueTariff = bessResult.annualRecoveredMWh * price.fixedTariffEurMWh;
+
+      // Scale to lifetime with degradation
+      // As modules degrade, less clipping → less BESS utilization
+      for (let y = 1; y <= project.lifetimeYears; y++) {
+        const degFactor = Math.pow(1 - project.degradationRate, y - 1);
+        // BESS recovered scales roughly with clipping, which scales with DC output
+        lifetimeBessRecovered += bessResult.annualRecoveredMWh * degFactor;
+      }
+      // Lifetime revenue scales similarly
+      const lifetimeScale = lifetimeBessRecovered / Math.max(bessResult.annualRecoveredMWh, 0.001);
+      bessRevenueMarket *= lifetimeScale;
+      bessRevenueTariff *= lifetimeScale;
+    }
+
+    // Total revenue including BESS
+    const totalLifetimeRevenueMarket = revenue.lifetimeRevenueMarket + bessRevenueMarket;
+    const totalLifetimeRevenueTariff = revenue.lifetimeRevenueTariff + bessRevenueTariff;
+
+    // ─── Optional CAPEX ──────────────────────────────────────────────────
     let totalCapex: number | undefined;
     let npv: number | undefined;
     let simplePaybackYears: number | undefined;
@@ -91,6 +130,14 @@ export function runOptimization(
 
     if (capex.enabled) {
       totalCapex = dcMWp * capex.capexPerMWpDC + acMWac * capex.capexPerMWacAC;
+
+      // Add BESS CAPEX if active
+      if (bess.duration !== 'none') {
+        const durationHours = bess.duration === '4h' ? 4 : 2;
+        const bessCapacity = bess.powerMW * durationHours;
+        totalCapex += bess.powerMW * capex.bessCapexPerMW + bessCapacity * capex.bessCapexPerMWh;
+      }
+
       const annualOpex = (dcMWp + acMWac) / 2 * capex.opexPerMWYear;
 
       annualCashflows = [];
@@ -100,7 +147,7 @@ export function runOptimization(
 
       for (let y = 1; y <= project.lifetimeYears; y++) {
         const degFactor = Math.pow(1 - project.degradationRate, y - 1);
-        const yearRevenue = revenue.annualRevenueMarket * degFactor;
+        const yearRevenue = (revenue.annualRevenueMarket + (bess.duration !== 'none' ? bessRevenueMarket / project.lifetimeYears : 0)) * degFactor;
         const yearCF = yearRevenue - annualOpex;
         annualCashflows.push(yearCF);
         cumulativeCF += yearCF;
@@ -132,13 +179,13 @@ export function runOptimization(
 
       annualRevenueMarket: revenue.annualRevenueMarket,
       annualRevenueTariff: revenue.annualRevenueTariff,
-      lifetimeRevenueMarket: revenue.lifetimeRevenueMarket,
-      lifetimeRevenueTariff: revenue.lifetimeRevenueTariff,
-      revenuePerMWpMarket: dcMWp > 0 ? revenue.lifetimeRevenueMarket / dcMWp : 0,
-      revenuePerMWacMarket: acMWac > 0 ? revenue.lifetimeRevenueMarket / acMWac : 0,
-      revenuePerMWpTariff: dcMWp > 0 ? revenue.lifetimeRevenueTariff / dcMWp : 0,
-      revenuePerMWacTariff: acMWac > 0 ? revenue.lifetimeRevenueTariff / acMWac : 0,
-      marginalRevenueMarket: 0, // Set below
+      lifetimeRevenueMarket: totalLifetimeRevenueMarket,
+      lifetimeRevenueTariff: totalLifetimeRevenueTariff,
+      revenuePerMWpMarket: dcMWp > 0 ? totalLifetimeRevenueMarket / dcMWp : 0,
+      revenuePerMWacMarket: acMWac > 0 ? totalLifetimeRevenueMarket / acMWac : 0,
+      revenuePerMWpTariff: dcMWp > 0 ? totalLifetimeRevenueTariff / dcMWp : 0,
+      revenuePerMWacTariff: acMWac > 0 ? totalLifetimeRevenueTariff / acMWac : 0,
+      marginalRevenueMarket: 0,
       marginalRevenueTariff: 0,
       marketValueWeightedPrice: revenue.marketValueWeightedPrice,
 
@@ -146,6 +193,12 @@ export function runOptimization(
       isOptimalEconomic: false,
       isOptimalMarginal: false,
       clippingWarning: false,
+
+      // BESS metrics
+      bessRecoveredMWh: lifetimeBessRecovered,
+      bessRevenueMarket: bessRevenueMarket,
+      bessRevenueTariff: bessRevenueTariff,
+      annualBessRecoveredMWh: bessResult.annualRecoveredMWh,
 
       totalCapex,
       npv,
@@ -155,6 +208,7 @@ export function runOptimization(
       hourlyGenerated: clipping.hourlyGenerated,
       hourlyInjected: clipping.hourlyInjected,
       hourlyClipped: clipping.hourlyClipped,
+      hourlyBessDischarge: bessResult.hourlyBessDischarge,
     };
   });
 
@@ -173,17 +227,14 @@ export function runOptimization(
 
   // ─── Identify optimal scenarios ────────────────────────────────────────────
   if (results.length > 0) {
-    // Technical optimal: lowest clipping %
     const minClip = results.reduce((a, b) =>
       a.clippingPercent <= b.clippingPercent ? a : b);
     minClip.isOptimalTechnical = true;
 
-    // Economic optimal: highest lifetime market revenue
     const maxRev = results.reduce((a, b) =>
       a.lifetimeRevenueMarket >= b.lifetimeRevenueMarket ? a : b);
     maxRev.isOptimalEconomic = true;
 
-    // Marginal optimal: highest marginal revenue (excluding first)
     const marginals = results.filter(r => r.marginalRevenueMarket > 0);
     if (marginals.length > 0) {
       const maxMarg = marginals.reduce((a, b) =>
@@ -191,7 +242,6 @@ export function runOptimization(
       maxMarg.isOptimalMarginal = true;
     }
 
-    // Clipping warning: if marginal clipping > 50% for incremental DC
     for (let i = 1; i < results.length; i++) {
       const prev = results[i - 1];
       const curr = results[i];

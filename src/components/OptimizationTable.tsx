@@ -16,6 +16,7 @@ export const OptimizationTable: React.FC<Props> = ({ scenarios, selectedRatio, o
   const fmtK = (n: number) => (n / 1000).toFixed(0) + 'k';
   const showMarket = revenueMode !== 'tariff';
   const showTariff = revenueMode !== 'market';
+  const hasBess = scenarios.some(s => s.bessRecoveredMWh > 0);
 
   return (
     <div className="glass-card overflow-hidden animate-fade-in">
@@ -37,6 +38,7 @@ export const OptimizationTable: React.FC<Props> = ({ scenarios, selectedRatio, o
               {showMarket && <th className="px-3 py-2 text-right text-slate-500 font-bold">Rev. Market M€</th>}
               {showTariff && <th className="px-3 py-2 text-right text-slate-500 font-bold">Rev. Tariff M€</th>}
               {showMarket && <th className="px-3 py-2 text-right text-slate-500 font-bold">€/MWp</th>}
+              {hasBess && <th className="px-3 py-2 text-right text-slate-500 font-bold">BESS GWh</th>}
               <th className="px-3 py-2 text-right text-slate-500 font-bold">Marginal €/MWp</th>
               <th className="px-3 py-2 text-center text-slate-500 font-bold">Status</th>
             </tr>
@@ -79,6 +81,11 @@ export const OptimizationTable: React.FC<Props> = ({ scenarios, selectedRatio, o
                   {showMarket && (
                     <td className="px-3 py-2 text-right text-slate-300 font-mono">
                       {fmtK(s.revenuePerMWpMarket)}
+                    </td>
+                  )}
+                  {hasBess && (
+                    <td className="px-3 py-2 text-right text-cyan-400 font-mono">
+                      {s.bessRecoveredMWh > 0 ? (s.bessRecoveredMWh / 1e3).toFixed(1) : '—'}
                     </td>
                   )}
                   <td className={`px-3 py-2 text-right font-mono ${

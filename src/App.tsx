@@ -5,6 +5,7 @@ import { PowerConfigPanel } from './components/PowerConfig';
 import { OrientationSelect } from './components/OrientationSelect';
 import { PriceConfigPanel } from './components/PriceConfig';
 import { CapexPanel } from './components/CapexPanel';
+import { BessPanel } from './components/BessPanel';
 import { ResultsDashboard } from './components/ResultsDashboard';
 import { OptimizationTable } from './components/OptimizationTable';
 import { ProfileChart, ClippingChart, RevenueChart, GenerationChart } from './components/Charts';
@@ -12,10 +13,10 @@ import { Methodology } from './components/Methodology';
 import { runOptimization } from './engine/optimization';
 import { generateSamplePriceProfile } from './engine/priceData';
 import type {
-  ProjectConfig, PowerConfig, PriceConfig, CapexConfig, Orientation,
+  ProjectConfig, PowerConfig, PriceConfig, CapexConfig, BessConfig, Orientation,
 } from './types';
 import {
-  DEFAULT_PROJECT, DEFAULT_POWER, DEFAULT_PRICE, DEFAULT_CAPEX,
+  DEFAULT_PROJECT, DEFAULT_POWER, DEFAULT_PRICE, DEFAULT_CAPEX, DEFAULT_BESS,
 } from './types';
 
 // ─── Initialize sample price data ───────────────────────────────────────────
@@ -30,18 +31,19 @@ function App() {
   const [orientation, setOrientation] = useState<Orientation>('south');
   const [price, setPrice] = useState<PriceConfig>(INITIAL_PRICE);
   const [capex, setCapex] = useState<CapexConfig>(DEFAULT_CAPEX);
+  const [bess, setBess] = useState<BessConfig>(DEFAULT_BESS);
   const [selectedRatio, setSelectedRatio] = useState<number>(DEFAULT_POWER.dcAcRatio);
 
   // ─── Run optimization ──────────────────────────────────────────────────────
   const scenarios = useMemo(() => {
     try {
       if (power.dcCapacityMWp <= 0 || power.acCapacityMWac <= 0) return [];
-      return runOptimization(project, power, orientation, price, capex);
+      return runOptimization(project, power, orientation, price, capex, bess);
     } catch (err) {
       console.error('Optimization error:', err);
       return [];
     }
-  }, [project, power, orientation, price, capex]);
+  }, [project, power, orientation, price, capex, bess]);
 
   // ─── Validation warnings ───────────────────────────────────────────────────
   const warnings: string[] = [];
@@ -103,6 +105,7 @@ function App() {
           <PowerConfigPanel config={power} onChange={setPower} />
           <OrientationSelect orientation={orientation} onChange={setOrientation} />
           <PriceConfigPanel config={price} onChange={setPrice} />
+          <BessPanel config={bess} onChange={setBess} />
           <CapexPanel config={capex} onChange={setCapex} />
         </div>
 
