@@ -10,6 +10,7 @@ import { ResultsDashboard } from './components/ResultsDashboard';
 import { OptimizationTable } from './components/OptimizationTable';
 import { ProfileChart, ClippingChart, RevenueChart, GenerationChart } from './components/Charts';
 import { Methodology } from './components/Methodology';
+import { GridConnectionPanel } from './components/GridConnectionPanel';
 import { runOptimization } from './engine/optimization';
 import { generateSamplePriceProfile } from './engine/priceData';
 import type {
@@ -203,6 +204,7 @@ function App() {
                   onSelectRatio={setSelectedRatio}
                   revenueMode={price.revenueMode}
                 />
+                <GridConnectionPanel acCapacityMWac={power.acCapacityMWac} />
               </>
             )}
           </div>
