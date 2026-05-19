@@ -1,29 +1,17 @@
-import React, { useState } from 'react';
-import { BookOpen, ChevronDown } from 'lucide-react';
+import React from 'react';
+import { BookOpen } from 'lucide-react';
 
 export const Methodology: React.FC = () => {
-  const [open, setOpen] = useState(false);
-
   return (
     <div className="glass-card animate-fade-in">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-4 text-left group"
-      >
-        <div className="flex items-center gap-2">
-          <BookOpen className="text-slate-400" size={18} />
-          <span className="text-sm font-bold text-slate-300 uppercase tracking-wider">
-            Methodology & Calculation Logic
-          </span>
-        </div>
-        <ChevronDown
-          size={16}
-          className={`text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
+      <div className="flex items-center gap-2 p-4 border-b border-white/5">
+        <BookOpen className="text-slate-400" size={18} />
+        <span className="text-sm font-bold text-slate-300 uppercase tracking-wider">
+          Methodology & Calculation Logic
+        </span>
+      </div>
 
-      {open && (
-        <div className="px-5 pb-5 text-xs text-slate-400 space-y-4 border-t border-white/5 pt-4 leading-relaxed">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 px-5 pb-5 text-xs text-slate-400 pt-4 leading-relaxed">
           <Section title="DC Capacity (MWp)">
             Installed peak power of the PV module array under Standard Test Conditions (STC, 1000 W/m², 25°C).
             This determines the maximum possible DC-side generation.
@@ -86,73 +74,26 @@ export const Methodology: React.FC = () => {
             <br />• <strong>Degradation:</strong> BESS utilization scales with module degradation (less clipping → less charging in later years).
           </Section>
 
-          {/* Data Sources */}
-          <div className="border-t border-white/10 pt-4 mt-4">
+          {/* Data Sources section - full width */}
+          <div className="md:col-span-2 border-t border-white/10 pt-4 mt-2">
             <h4 className="text-xs font-bold text-emerald-300 mb-3 uppercase tracking-wider">Data Sources & Assumptions</h4>
-
-            <div className="space-y-2">
-              <SourceRow
-                parameter="Generation Profiles"
-                source="Synthetic (Solar Geometry)"
-                detail="Cooper equation for solar declination, hour angle, elevation at 52°N. Clear-sky Hottel airmass model. NOT from TMY or satellite data."
-                quality="illustrative"
-              />
-              <SourceRow
-                parameter="Monthly Clearness Index"
-                source="German TMY literature"
-                detail="Monthly Kt values: Jan 0.30, Feb 0.35, Mar 0.42, Apr 0.48, May 0.52, Jun 0.54, Jul 0.53, Aug 0.50, Sep 0.45, Oct 0.38, Nov 0.30, Dec 0.27."
-                quality="representative"
-              />
-              <SourceRow
-                parameter="Annual Yield Targets"
-                source="Industry benchmarks"
-                detail="South: 1050 kWh/kWp, EW: 970, SE/SW: 1020. Used to calibrate profile scaling."
-                quality="representative"
-              />
-              <SourceRow
-                parameter="Market Price Shape"
-                source="SMARD.de / Energy-Charts 2024"
-                detail="DE-LU bidding zone day-ahead auction prices, hourly, 2024-01-01 to 2024-12-31 (8760h). Source: Bundesnetzagentur | SMARD.de via Energy-Charts API. License: CC BY 4.0. Avg: 78.56 EUR/MWh, 457 negative-price hours."
-                quality="standard"
-              />
-              <SourceRow
-                parameter="Module Degradation"
-                source="IEC 61215 / industry"
-                detail="Default 0.4%/a linear. Tier-1 modules typically 0.3–0.5%/a."
-                quality="standard"
-              />
-              <SourceRow
-                parameter="Availability"
-                source="Industry assumption"
-                detail="Default 98%. Includes inverter downtime, grid curtailment, maintenance."
-                quality="standard"
-              />
-              <SourceRow
-                parameter="BESS Round-Trip Eff."
-                source="Lithium-ion benchmark"
-                detail="Default 88%. Grid-scale Li-ion systems typically 85–92%."
-                quality="standard"
-              />
-              <SourceRow
-                parameter="BESS CAPEX"
-                source="BNEF / industry 2024"
-                detail="Default: 250 k€/MWh storage + 150 k€/MW power electronics. Varies significantly by technology and project."
-                quality="estimate"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {DATA_SOURCES.map(ds => (
+                <SourceRow key={ds.parameter} {...ds} />
+              ))}
             </div>
           </div>
 
-          <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 mt-4">
+          <div className="md:col-span-2 bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 mt-2">
             <p className="text-amber-400/80 text-[10px] font-bold uppercase tracking-wider mb-1">Disclaimer</p>
             <p className="text-amber-400/60 text-[10px]">
               This tool provides a comparative pre-feasibility calculation. It does not replace a bankable yield
               assessment, detailed PVSyst simulation, grid connection study, or final investment model.
-              Generation profiles are synthetic and illustrative. Price data may be sample-based.
+              Generation profiles are synthetic and illustrative. Market price data is from SMARD.de (2024).
               All data sources should be verified against project-specific conditions before investment decisions.
             </p>
           </div>
         </div>
-      )}
     </div>
   );
 };
@@ -170,6 +111,57 @@ const QUALITY_COLORS: Record<string, string> = {
   standard: 'bg-emerald-500/20 text-emerald-300',
   estimate: 'bg-purple-500/20 text-purple-300',
 };
+
+const DATA_SOURCES = [
+  {
+    parameter: 'Generation Profiles',
+    source: 'Synthetic (Solar Geometry)',
+    detail: 'Cooper equation for solar declination, hour angle, elevation at 52°N. Clear-sky Hottel airmass model. NOT from TMY or satellite data.',
+    quality: 'illustrative',
+  },
+  {
+    parameter: 'Monthly Clearness Index',
+    source: 'German TMY literature',
+    detail: 'Monthly Kt values: Jan 0.30, Feb 0.35, Mar 0.42, Apr 0.48, May 0.52, Jun 0.54, Jul 0.53, Aug 0.50, Sep 0.45, Oct 0.38, Nov 0.30, Dec 0.27.',
+    quality: 'representative',
+  },
+  {
+    parameter: 'Annual Yield Targets',
+    source: 'Industry benchmarks',
+    detail: 'South: 1050 kWh/kWp, EW: 970, SE/SW: 1020. Used to calibrate profile scaling.',
+    quality: 'representative',
+  },
+  {
+    parameter: 'Market Price Shape',
+    source: 'SMARD.de / Energy-Charts 2024',
+    detail: 'DE-LU bidding zone day-ahead auction prices, hourly, 2024-01-01 to 2024-12-31 (8760h). Source: Bundesnetzagentur | SMARD.de via Energy-Charts API. License: CC BY 4.0. Avg: 78.56 EUR/MWh, 457 negative-price hours.',
+    quality: 'standard',
+  },
+  {
+    parameter: 'Module Degradation',
+    source: 'IEC 61215 / industry',
+    detail: 'Default 0.4%/a linear. Tier-1 modules typically 0.3–0.5%/a.',
+    quality: 'standard',
+  },
+  {
+    parameter: 'Availability',
+    source: 'Industry assumption',
+    detail: 'Default 98%. Includes inverter downtime, grid curtailment, maintenance.',
+    quality: 'standard',
+  },
+  {
+    parameter: 'BESS Round-Trip Eff.',
+    source: 'Lithium-ion benchmark',
+    detail: 'Default 88%. Grid-scale Li-ion systems typically 85–92%.',
+    quality: 'standard',
+  },
+  {
+    parameter: 'BESS CAPEX',
+    source: 'BNEF / industry 2024',
+    detail: 'Default: 250 k€/MWh storage + 150 k€/MW power electronics. Varies significantly by technology and project.',
+    quality: 'estimate',
+  },
+];
 
 const SourceRow: React.FC<{
   parameter: string; source: string; detail: string; quality: string;

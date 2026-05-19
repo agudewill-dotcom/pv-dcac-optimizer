@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, Zap, DollarSign, BarChart3, BookOpen } from 'lucide-react';
 import { ProjectSetup } from './components/ProjectSetup';
 import { PowerConfigPanel } from './components/PowerConfig';
 import { OrientationSelect } from './components/OrientationSelect';
@@ -19,13 +19,24 @@ import {
   DEFAULT_PROJECT, DEFAULT_POWER, DEFAULT_PRICE, DEFAULT_CAPEX, DEFAULT_BESS,
 } from './types';
 
-// ─── Initialize sample price data ───────────────────────────────────────────
+// ─── Tab definitions ────────────────────────────────────────────────────────
+type TabId = 'design' | 'revenue' | 'results' | 'methodology';
+
+const TABS: { id: TabId; label: string; icon: typeof Zap }[] = [
+  { id: 'design', label: 'System Design', icon: Zap },
+  { id: 'revenue', label: 'Revenue & Storage', icon: DollarSign },
+  { id: 'results', label: 'Results', icon: BarChart3 },
+  { id: 'methodology', label: 'Methodology', icon: BookOpen },
+];
+
+// ─── Initialize price data ──────────────────────────────────────────────────
 const INITIAL_PRICE: PriceConfig = {
   ...DEFAULT_PRICE,
   priceProfile: generateSamplePriceProfile(),
 };
 
 function App() {
+  const [activeTab, setActiveTab] = useState<TabId>('design');
   const [project, setProject] = useState<ProjectConfig>(DEFAULT_PROJECT);
   const [power, setPower] = useState<PowerConfig>(DEFAULT_POWER);
   const [orientation, setOrientation] = useState<Orientation>('south');
@@ -58,7 +69,7 @@ function App() {
   const showTariff = price.revenueMode !== 'market';
 
   return (
-    <div className="min-h-screen p-4 md:p-8 space-y-8 max-w-[1400px] mx-auto bg-slate-950">
+    <div className="min-h-screen p-4 md:p-8 space-y-6 max-w-[1400px] mx-auto bg-slate-950">
       {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in">
         <div>
@@ -70,9 +81,10 @@ function App() {
             Utility-Scale PV — Clipping, Revenue & Oversizing Analysis
           </p>
         </div>
+        {/* Persistent status bar */}
         <div className="flex items-center gap-4 bg-slate-900/40 p-3 rounded-xl border border-white/5">
           <div className="text-right">
-            <div className="text-[10px] font-bold text-slate-500 uppercase">Selected Ratio</div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase">Ratio</div>
             <div className="text-lg font-bold text-emerald-400 leading-none">
               {selectedRatio.toFixed(2)}×
             </div>
@@ -85,6 +97,24 @@ function App() {
             </div>
             <div className="text-[9px] text-slate-500">MWp / MWac</div>
           </div>
+          {selected && (
+            <>
+              <div className="w-px h-8 bg-slate-700" />
+              <div className="text-right">
+                <div className="text-[10px] font-bold text-slate-500 uppercase">Clipping</div>
+                <div className={`text-sm font-bold leading-none ${selected.clippingPercent > 5 ? 'text-amber-400' : 'text-white'}`}>
+                  {selected.clippingPercent.toFixed(2)}%
+                </div>
+              </div>
+              <div className="w-px h-8 bg-slate-700 hidden md:block" />
+              <div className="text-right hidden md:block">
+                <div className="text-[10px] font-bold text-slate-500 uppercase">FLH AC</div>
+                <div className="text-sm font-bold text-white leading-none">
+                  {selected.fullLoadHoursAC.toLocaleString('de-DE', { maximumFractionDigits: 0 })} h
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </header>
 
@@ -97,58 +127,91 @@ function App() {
         </div>
       )}
 
-      {/* Main Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left sidebar: inputs */}
-        <div className="lg:col-span-4 space-y-6">
-          <ProjectSetup config={project} onChange={setProject} />
-          <PowerConfigPanel config={power} onChange={setPower} />
-          <OrientationSelect orientation={orientation} onChange={setOrientation} />
-          <PriceConfigPanel config={price} onChange={setPrice} />
-          <BessPanel config={bess} onChange={setBess} />
-          <CapexPanel config={capex} onChange={setCapex} />
-        </div>
+      {/* Tab Navigation */}
+      <nav className="flex gap-1 bg-slate-900/40 p-1 rounded-xl border border-white/5">
+        {TABS.map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${
+                isActive
+                  ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50 border border-transparent'
+              }`}
+            >
+              <Icon size={16} />
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          );
+        })}
+      </nav>
 
-        {/* Right: results */}
-        <div className="lg:col-span-8 space-y-6">
-          {scenarios.length === 0 ? (
-            <div className="glass-card p-12 text-center space-y-4">
-              <Activity className="mx-auto text-slate-600" size={40} />
-              <div className="text-slate-400 font-bold text-lg">Configure your project</div>
-              <p className="text-slate-500 text-sm">
-                Enter valid DC and AC capacities to generate the optimization analysis.
-              </p>
+      {/* ─── Tab Content ──────────────────────────────────────────────────────── */}
+      <div className="animate-fade-in" key={activeTab}>
+        {/* System Design Tab */}
+        {activeTab === 'design' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ProjectSetup config={project} onChange={setProject} />
+              <PowerConfigPanel config={power} onChange={setPower} />
             </div>
-          ) : (
-            <>
-              {/* Results Dashboard */}
-              <ResultsDashboard
-                scenarios={scenarios}
-                selectedRatio={selectedRatio}
-                revenueMode={price.revenueMode}
-              />
+            <OrientationSelect orientation={orientation} onChange={setOrientation} />
+          </div>
+        )}
 
-              {/* Charts Row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <ProfileChart orientation={orientation} />
-                <GenerationChart scenario={selected} />
-                <ClippingChart scenarios={scenarios} />
-                <RevenueChart scenarios={scenarios} showMarket={showMarket} showTariff={showTariff} />
+        {/* Revenue & Storage Tab */}
+        {activeTab === 'revenue' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <PriceConfigPanel config={price} onChange={setPrice} />
+              <BessPanel config={bess} onChange={setBess} />
+            </div>
+            <CapexPanel config={capex} onChange={setCapex} />
+          </div>
+        )}
+
+        {/* Results Tab */}
+        {activeTab === 'results' && (
+          <div className="space-y-6">
+            {scenarios.length === 0 ? (
+              <div className="glass-card p-12 text-center space-y-4">
+                <Activity className="mx-auto text-slate-600" size={40} />
+                <div className="text-slate-400 font-bold text-lg">Configure your project</div>
+                <p className="text-slate-500 text-sm">
+                  Enter valid DC and AC capacities in the System Design tab to generate results.
+                </p>
               </div>
+            ) : (
+              <>
+                <ResultsDashboard
+                  scenarios={scenarios}
+                  selectedRatio={selectedRatio}
+                  revenueMode={price.revenueMode}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <ProfileChart orientation={orientation} />
+                  <GenerationChart scenario={selected} />
+                  <ClippingChart scenarios={scenarios} />
+                  <RevenueChart scenarios={scenarios} showMarket={showMarket} showTariff={showTariff} />
+                </div>
+                <OptimizationTable
+                  scenarios={scenarios}
+                  selectedRatio={selectedRatio}
+                  onSelectRatio={setSelectedRatio}
+                  revenueMode={price.revenueMode}
+                />
+              </>
+            )}
+          </div>
+        )}
 
-              {/* Optimization Table */}
-              <OptimizationTable
-                scenarios={scenarios}
-                selectedRatio={selectedRatio}
-                onSelectRatio={setSelectedRatio}
-                revenueMode={price.revenueMode}
-              />
-
-              {/* Methodology */}
-              <Methodology />
-            </>
-          )}
-        </div>
+        {/* Methodology Tab */}
+        {activeTab === 'methodology' && (
+          <Methodology />
+        )}
       </div>
 
       {/* Footer */}
