@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Activity, Zap, DollarSign, BarChart3, BookOpen } from 'lucide-react';
+import { Activity, Zap, DollarSign, BarChart3, BookOpen, Download } from 'lucide-react';
 import { ProjectSetup } from './components/ProjectSetup';
 import { PowerConfigPanel } from './components/PowerConfig';
 import { OrientationSelect } from './components/OrientationSelect';
@@ -13,6 +13,7 @@ import { Methodology } from './components/Methodology';
 import { GridConnectionPanel } from './components/GridConnectionPanel';
 import { runOptimization } from './engine/optimization';
 import { generateSamplePriceProfile } from './engine/priceData';
+import { exportResultsPDF } from './engine/pdfExport';
 import type {
   ProjectConfig, PowerConfig, PriceConfig, CapexConfig, BessConfig, Orientation,
 } from './types';
@@ -116,6 +117,21 @@ function App() {
               </div>
             </>
           )}
+          {scenarios.length > 0 && (
+            <>
+              <div className="w-px h-8 bg-slate-700" />
+              <button
+                onClick={() => exportResultsPDF({
+                  project, power, orientation, price, bess, scenarios, selectedRatio,
+                })}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 transition-all text-xs font-bold"
+                title="Download results as PDF"
+              >
+                <Download size={14} />
+                <span className="hidden sm:inline">PDF</span>
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -204,7 +220,11 @@ function App() {
                   onSelectRatio={setSelectedRatio}
                   revenueMode={price.revenueMode}
                 />
-                <GridConnectionPanel acCapacityMWac={power.acCapacityMWac} />
+                <GridConnectionPanel
+                  acCapacityMWac={power.acCapacityMWac}
+                  dcCapacityMWp={power.dcCapacityMWp}
+                  scenario={selected}
+                />
               </>
             )}
           </div>

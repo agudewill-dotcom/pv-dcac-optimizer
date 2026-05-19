@@ -227,3 +227,135 @@ export function calculateCableRoute(
     parallelCircuits: numCircuits,
   };
 }
+
+// ─── Substation cost estimation (point estimates, k€) ────────────────────────
+function estimateSubstationCostKEur(type: SubstationRecommendation['type'], acMWac: number): {
+  substationKEur: number;
+  permittingKEur: number;
+  totalKEur: number;
+} {
+  switch (type) {
+    case 'none':
+      return { substationKEur: 0, permittingKEur: 5, totalKEur: 5 };
+    case 'compact_station':
+      // ~80k base + 30k per MWac
+      return {
+        substationKEur: Math.round(80 + acMWac * 30),
+        permittingKEur: Math.round(15 + acMWac * 3),
+        totalKEur: Math.round(95 + acMWac * 33),
+      };
+    case 'project_substation':
+      // ~200k base + 25k per MWac + permitting with Netzanschlussbegehren
+      return {
+        substationKEur: Math.round(200 + acMWac * 25),
+        permittingKEur: Math.round(50 + acMWac * 5),
+        totalKEur: Math.round(250 + acMWac * 30),
+      };
+    case 'hv_substation':
+      // ~1500k base + 40k per MWac + extensive permitting (Netzverträglichkeitsprüfung)
+      return {
+        substationKEur: Math.round(1500 + acMWac * 40),
+        permittingKEur: Math.round(200 + acMWac * 8),
+        totalKEur: Math.round(1700 + acMWac * 48),
+      };
+    case 'multi_substation':
+      return {
+        substationKEur: Math.round(3000 + acMWac * 50),
+        permittingKEur: Math.round(500 + acMWac * 10),
+        totalKEur: Math.round(3500 + acMWac * 60),
+      };
+    default:
+      return { substationKEur: 0, permittingKEur: 0, totalKEur: 0 };
+  }
+}
+
+// ─── MV vs HV economic comparison ────────────────────────────────────────────
+export interface SubstationEconomics {
+  // Option A: HV connection (DC/AC = 1.0, no clipping)
+  hvAcCapacityMWac: number;           // = DC capacity (ratio 1.0)
+  hvSubstation: SubstationRecommendation;
+  hvCostKEur: { substationKEur: number; permittingKEur: number; totalKEur: number };
+
+  // Option B: Current MV connection (with clipping)
+  mvAcCapacityMWac: number;           // current AC capacity
+  mvSubstation: SubstationRecommendation;
+  mvCostKEur: { substationKEur: number; permittingKEur: number; totalKEur: number };
+
+  // Clipping economics
+  lifetimeClippedMWh: number;         // energy lost to clipping
+  lifetimeClippingRevenueLossKEur: number; // revenue lost from clipping
+  dcAcRatio: number;
+  clippingPercent: number;
+
+  // Net comparison
+  infrastructureSavingKEur: number;   // HV cost - MV cost (positive = saving by using MV)
+  netAdvantageKEur: number;           // infrastructure saving - clipping loss (positive = MV is better)
+  recommendation: 'mv_preferred' | 'hv_preferred' | 'marginal' | 'same_level';
+  recommendationText: string;
+}
+
+export function calculateSubstationEconomics(
+  dcCapacityMWp: number,
+  acCapacityMWac: number,
+  lifetimeClippedMWh: number,
+  lifetimeRevenueMarketMEur: number,
+  lifetimeInjectedMWh: number,
+  clippingPercent: number,
+): SubstationEconomics {
+  // Option A: HV — DC/AC = 1.0 (AC = DC)
+  const hvAc = dcCapacityMWp;
+  const hvSub = getSubstationRecommendation(hvAc);
+  const hvCost = estimateSubstationCostKEur(hvSub.type, hvAc);
+
+  // Option B: Current MV
+  const mvSub = getSubstationRecommendation(acCapacityMWac);
+  const mvCost = estimateSubstationCostKEur(mvSub.type, acCapacityMWac);
+
+  // Clipping revenue loss: use average market price from actual revenue data
+  const avgPriceEurPerMWh = lifetimeInjectedMWh > 0
+    ? (lifetimeRevenueMarketMEur * 1000) / lifetimeInjectedMWh * 1000  // M€ → k€ → EUR
+    : 70; // fallback
+  const clippingRevenueLossKEur = (lifetimeClippedMWh * avgPriceEurPerMWh) / 1000;
+
+  // Infrastructure saving by choosing MV over HV
+  const infrastructureSaving = hvCost.totalKEur - mvCost.totalKEur;
+
+  // Net advantage: positive means MV is the better economic choice
+  const netAdvantage = infrastructureSaving - clippingRevenueLossKEur;
+
+  // Determine recommendation
+  let recommendation: SubstationEconomics['recommendation'];
+  let recommendationText: string;
+
+  if (hvSub.type === mvSub.type) {
+    recommendation = 'same_level';
+    recommendationText = `Both options require the same connection level (${mvSub.voltageLabelKV}). The DC/AC ratio decision is purely about clipping optimization.`;
+  } else if (netAdvantage > 100) {
+    recommendation = 'mv_preferred';
+    recommendationText = `MV connection saves ${Math.round(netAdvantage)} k€ net vs. building a 110 kV substation. The ${clippingPercent.toFixed(1)}% clipping loss is economically justified by the ${Math.round(infrastructureSaving)} k€ infrastructure saving.`;
+  } else if (netAdvantage < -100) {
+    recommendation = 'hv_preferred';
+    recommendationText = `A 110 kV connection is economically justified. The ${Math.round(clippingRevenueLossKEur)} k€ lifetime revenue lost from clipping exceeds the ${Math.round(infrastructureSaving)} k€ infrastructure saving from MV.`;
+  } else {
+    recommendation = 'marginal';
+    recommendationText = `The economics are marginal (net difference: ${Math.round(netAdvantage)} k€). Consider other factors: grid operator requirements, future expansion plans, and permitting timeline (${hvSub.typicalLeadTime} for HV vs. ${mvSub.typicalLeadTime} for MV).`;
+  }
+
+  return {
+    hvAcCapacityMWac: hvAc,
+    hvSubstation: hvSub,
+    hvCostKEur: hvCost,
+    mvAcCapacityMWac: acCapacityMWac,
+    mvSubstation: mvSub,
+    mvCostKEur: mvCost,
+    lifetimeClippedMWh,
+    lifetimeClippingRevenueLossKEur: Math.round(clippingRevenueLossKEur),
+    dcAcRatio: dcCapacityMWp / acCapacityMWac,
+    clippingPercent,
+    infrastructureSavingKEur: Math.round(infrastructureSaving),
+    netAdvantageKEur: Math.round(netAdvantage),
+    recommendation,
+    recommendationText,
+  };
+}
+
