@@ -111,9 +111,9 @@ export const Methodology: React.FC = () => {
               />
               <SourceRow
                 parameter="Market Price Shape"
-                source="Sample day-ahead curve"
-                detail="Illustrative German day-ahead hourly shape with duck curve, seasonal modulation, and weekend discount. Replace with actual EPEX/SMARD data for project use."
-                quality="illustrative"
+                source="SMARD.de / Energy-Charts 2024"
+                detail="DE-LU bidding zone day-ahead auction prices, hourly, 2024-01-01 to 2024-12-31 (8760h). Source: Bundesnetzagentur | SMARD.de via Energy-Charts API. License: CC BY 4.0. Avg: 78.56 EUR/MWh, 457 negative-price hours."
+                quality="standard"
               />
               <SourceRow
                 parameter="Module Degradation"

@@ -139,7 +139,7 @@ export const DEFAULT_PRICE: PriceConfig = {
   revenueMode: 'hybrid',
   fixedTariffEurMWh: 70,
   priceProfile: [],
-  priceSource: 'sample',
+  priceSource: 'smard_2024',
 };
 
 export const DEFAULT_BESS: BessConfig = {

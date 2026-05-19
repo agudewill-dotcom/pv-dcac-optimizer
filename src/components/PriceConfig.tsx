@@ -81,9 +81,9 @@ export const PriceConfigPanel: React.FC<Props> = ({ config, onChange }) => {
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                 config.priceSource === 'csv'
                   ? 'text-emerald-300 bg-emerald-500/15'
-                  : 'text-amber-300 bg-amber-500/15'
+                  : 'text-emerald-300 bg-emerald-500/15'
               }`}>
-                {config.priceSource === 'csv' ? 'User CSV' : 'Sample (DE Day-Ahead)'}
+                {config.priceSource === 'csv' ? 'User CSV' : 'SMARD.de 2024'}
               </span>
             </div>
 
@@ -103,6 +103,17 @@ export const PriceConfigPanel: React.FC<Props> = ({ config, onChange }) => {
         )}
       </div>
 
+      {config.priceSource === 'smard_2024' && config.revenueMode !== 'tariff' && (
+        <div className="text-[10px] text-emerald-400/70 italic leading-tight space-y-1">
+          <p>
+            DE-LU day-ahead auction prices 2024. Source: Bundesnetzagentur | SMARD.de via Energy-Charts API.
+            License: CC BY 4.0.
+          </p>
+          <p className="text-slate-500">
+            Upload a custom CSV for different years or regions.
+          </p>
+        </div>
+      )}
       {config.priceSource === 'sample' && config.revenueMode !== 'tariff' && (
         <p className="text-[10px] text-amber-400/70 italic leading-tight">
           Using representative German day-ahead price shape. Upload actual price data for project-specific analysis.
