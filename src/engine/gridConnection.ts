@@ -114,15 +114,15 @@ export function getSubstationRecommendation(acCapacityMWac: number): SubstationR
     };
   }
 
-  if (acCapacityMWac <= 30) {
+  if (acCapacityMWac <= 20) {
     return {
       required: true,
       type: 'project_substation',
-      label: 'Dedicated project substation',
-      description: `Project-specific MV/MV or MV/HV substation with ring main unit (RMU), protection relays, and SCADA interface. Multiple transformers (${Math.ceil(acCapacityMWac / 5)} × ${Math.min(5000, Math.ceil(acCapacityMWac * 1000 / Math.ceil(acCapacityMWac / 5)))} kVA) required.`,
-      voltageLevel: acCapacityMWac <= 15 ? 'MV_20' : 'MV_30',
-      voltageLabelKV: acCapacityMWac <= 15 ? '20 kV' : '30 kV',
-      estimatedCostRange: '250–800 k€',
+      label: 'Dedicated MV project substation',
+      description: `Project-specific MV substation with ring main unit (RMU), protection relays, and SCADA interface. Multiple transformers (${Math.ceil(acCapacityMWac / 5)} × ${Math.min(5000, Math.ceil(acCapacityMWac * 1000 / Math.ceil(acCapacityMWac / 5)))} kVA) required. Grid operator approval (Netzanschlussbegehren) needed.`,
+      voltageLevel: acCapacityMWac <= 10 ? 'MV_20' : 'MV_30',
+      voltageLabelKV: acCapacityMWac <= 10 ? '20 kV' : '30 kV',
+      estimatedCostRange: '250–700 k€',
       typicalLeadTime: '6–12 months',
     };
   }

@@ -1,15 +1,10 @@
 /**
  * pdfExport.ts — Generate a professional PDF report of optimization results
  *
- * Uses jspdf + jspdf-autotable to create a boardroom-ready document with:
- * - Project summary
- * - KPI dashboard
- * - Optimization comparison table
- * - Grid connection assessment
- * - Methodology notes
+ * Uses jspdf v4 + jspdf-autotable v5
  */
 
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { ScenarioResult } from '../types';
 import type { ProjectConfig, PowerConfig, PriceConfig, BessConfig } from '../types';
@@ -26,12 +21,6 @@ interface ExportOptions {
   selectedRatio: number;
 }
 
-const BRAND_GREEN = [16, 185, 129] as const;
-const DARK_BG = [15, 23, 42] as const;
-const MEDIUM_BG = [30, 41, 59] as const;
-const LIGHT_TEXT = [248, 250, 252] as const;
-const MUTED_TEXT = [148, 163, 184] as const;
-
 export function exportResultsPDF(opts: ExportOptions) {
   const { project, power, orientation, price, bess, scenarios, selectedRatio } = opts;
   const selected = scenarios.find(s => s.dcAcRatio === selectedRatio) || scenarios[0];
@@ -39,114 +28,117 @@ export function exportResultsPDF(opts: ExportOptions) {
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
-  const margin = 15;
-  const contentW = pageW - 2 * margin;
-  let y = margin;
+  const pageH = doc.internal.pageSize.getHeight();
+  const M = 15; // margin
+  const W = pageW - 2 * M; // content width
+  let y = M;
 
-  // ─── Helper functions ────────────────────────────────────────────────────
-  const addText = (text: string, x: number, yPos: number, opts?: { size?: number; color?: readonly number[]; style?: string; maxWidth?: number }) => {
-    doc.setFontSize(opts?.size || 10);
-    doc.setTextColor(...(opts?.color || LIGHT_TEXT) as [number, number, number]);
-    if (opts?.style) doc.setFont('helvetica', opts.style);
-    else doc.setFont('helvetica', 'normal');
-    if (opts?.maxWidth) {
-      doc.text(text, x, yPos, { maxWidth: opts.maxWidth });
-    } else {
-      doc.text(text, x, yPos);
-    }
-  };
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const fmt = (v: number, d = 2) => v.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmtK = (v: number) => Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(2)} M€` : `${(v / 1e3).toFixed(0)} k€`;
+  const fmtK2 = (v: number) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(1)} M€` : `${v} k€`;
 
-  const addSection = (title: string) => {
-    if (y > 260) { doc.addPage(); y = margin; }
-    y += 4;
-    doc.setFillColor(...MEDIUM_BG);
-    doc.roundedRect(margin, y - 4, contentW, 8, 1, 1, 'F');
-    addText(title, margin + 3, y + 1, { size: 10, style: 'bold', color: BRAND_GREEN });
-    y += 10;
-  };
-
-  const addKPI = (label: string, value: string, x: number, w: number) => {
-    doc.setFillColor(30, 41, 59);
-    doc.roundedRect(x, y, w, 12, 1, 1, 'F');
-    addText(label, x + 2, y + 4, { size: 6, color: MUTED_TEXT, style: 'normal' });
-    addText(value, x + 2, y + 9, { size: 9, style: 'bold' });
-  };
-
-  const fmt = (v: number, d: number = 2) => v.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
-  const fmtK = (v: number) => v >= 1e6 ? `${(v / 1e6).toFixed(2)} M€` : `${(v / 1e3).toFixed(0)} k€`;
-
-  // ─── Page background ─────────────────────────────────────────────────────
+  // ─── Background ──────────────────────────────────────────────────────────
   const drawBg = () => {
-    doc.setFillColor(...DARK_BG);
-    doc.rect(0, 0, pageW, doc.internal.pageSize.getHeight(), 'F');
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageW, pageH, 'F');
   };
   drawBg();
 
-  // ─── HEADER ──────────────────────────────────────────────────────────────
-  doc.setFillColor(...BRAND_GREEN);
-  doc.roundedRect(margin, y, 3, 14, 1, 1, 'F');
-  addText('DC/AC Ratio Optimizer', margin + 6, y + 5, { size: 16, style: 'bold' });
-  addText('Utility-Scale PV — Pre-Feasibility Analysis Report', margin + 6, y + 11, { size: 8, color: MUTED_TEXT });
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  const text = (str: string, x: number, yy: number, size = 10, color = [248, 250, 252], style = 'normal', maxW?: number) => {
+    doc.setFontSize(size);
+    doc.setTextColor(color[0], color[1], color[2]);
+    doc.setFont('helvetica', style);
+    if (maxW) doc.text(str, x, yy, { maxWidth: maxW });
+    else doc.text(str, x, yy);
+  };
 
-  // Date
-  const now = new Date();
-  addText(now.toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit' }), pageW - margin, y + 5, { size: 8, color: MUTED_TEXT });
-  doc.text('', pageW - margin, y + 5); // right-align hack
-  y += 18;
+  const section = (title: string) => {
+    if (y > 265) { doc.addPage(); drawBg(); y = M; }
+    y += 3;
+    doc.setFillColor(30, 41, 59);
+    doc.rect(M, y - 3, W, 7, 'F');
+    text(title, M + 3, y + 2, 9, [16, 185, 129], 'bold');
+    y += 10;
+  };
 
-  // ─── PROJECT SUMMARY ─────────────────────────────────────────────────────
-  addSection('PROJECT SUMMARY');
+  const kpi = (label: string, value: string, x: number, w: number) => {
+    doc.setFillColor(30, 41, 59);
+    doc.rect(x, y, w, 11, 'F');
+    doc.setDrawColor(51, 65, 85);
+    doc.rect(x, y, w, 11, 'S');
+    text(label, x + 2, y + 4, 6, [148, 163, 184]);
+    text(value, x + 2, y + 9, 8, [248, 250, 252], 'bold');
+  };
 
-  const kpiW = (contentW - 6) / 4;
-  addKPI('Project Name', project.name || 'Unnamed', margin, kpiW);
-  addKPI('Country', project.country, margin + kpiW + 2, kpiW);
-  addKPI('Lifetime', `${project.lifetimeYears} years`, margin + 2 * (kpiW + 2), kpiW);
-  addKPI('Degradation', `${(project.degradationRate * 100).toFixed(2)}%/a`, margin + 3 * (kpiW + 2), kpiW);
-  y += 15;
+  const kpiW = (W - 6) / 4;
+  const kpi3W = (W - 4) / 3;
 
-  addKPI('DC Capacity', `${power.dcCapacityMWp} MWp`, margin, kpiW);
-  addKPI('AC Capacity', `${power.acCapacityMWac} MWac`, margin + kpiW + 2, kpiW);
-  addKPI('DC/AC Ratio', `${selectedRatio.toFixed(2)}×`, margin + 2 * (kpiW + 2), kpiW);
-  addKPI('Orientation', orientation.charAt(0).toUpperCase() + orientation.slice(1).replace('-', ' '), margin + 3 * (kpiW + 2), kpiW);
-  y += 15;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PAGE 1 — Project Summary & Optimization Table
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  // Revenue mode
-  const revLabel = price.revenueMode === 'market' ? 'Market Price' : price.revenueMode === 'tariff' ? 'Fixed Tariff' : 'Comparison (Market + Tariff)';
-  addKPI('Revenue Mode', revLabel, margin, kpiW * 2 + 2);
-  addKPI('Price Source', price.priceSource === 'csv' ? 'User CSV' : 'SMARD.de 2024', margin + 2 * (kpiW + 2), kpiW);
-  addKPI('BESS', bess.duration !== 'none' ? `${bess.duration} BESS` : 'None', margin + 3 * (kpiW + 2), kpiW);
+  // Header
+  doc.setFillColor(16, 185, 129);
+  doc.rect(M, y, 3, 12, 'F');
+  text('DC/AC Ratio Optimizer', M + 6, y + 5, 15, [248, 250, 252], 'bold');
+  text('Utility-Scale PV — Pre-Feasibility Analysis Report', M + 6, y + 10, 7, [148, 163, 184]);
+  text(dateStr, pageW - M - 25, y + 5, 8, [148, 163, 184]);
   y += 16;
 
-  // ─── SELECTED SCENARIO KPIs ──────────────────────────────────────────────
-  addSection(`SELECTED SCENARIO (DC/AC = ${selectedRatio.toFixed(2)}×)`);
+  // ─── PROJECT SUMMARY ────────────────────────────────────────────────────
+  section('PROJECT SUMMARY');
 
-  addKPI('Annual Gen. (Yr1)', `${fmt(selected.annualGeneratedMWh, 0)} MWh`, margin, kpiW);
-  addKPI('Annual Injected', `${fmt(selected.annualInjectedMWh, 0)} MWh`, margin + kpiW + 2, kpiW);
-  addKPI('Clipping', `${selected.clippingPercent.toFixed(2)}%`, margin + 2 * (kpiW + 2), kpiW);
-  addKPI('FLH AC', `${fmt(selected.fullLoadHoursAC, 0)} h`, margin + 3 * (kpiW + 2), kpiW);
-  y += 15;
+  kpi('Project Name', project.name || 'Unnamed', M, kpiW);
+  kpi('Country', project.country, M + kpiW + 2, kpiW);
+  kpi('Lifetime', `${project.lifetimeYears} years`, M + 2 * (kpiW + 2), kpiW);
+  kpi('Degradation', `${(project.degradationRate * 100).toFixed(2)}%/a`, M + 3 * (kpiW + 2), kpiW);
+  y += 13;
 
-  addKPI('Lifetime Generated', `${fmt(selected.lifetimeGeneratedMWh, 0)} MWh`, margin, kpiW);
-  addKPI('Lifetime Injected', `${fmt(selected.lifetimeInjectedMWh, 0)} MWh`, margin + kpiW + 2, kpiW);
-  addKPI('Rev. Market', fmtK(selected.lifetimeRevenueMarket), margin + 2 * (kpiW + 2), kpiW);
-  addKPI('Rev. Tariff', fmtK(selected.lifetimeRevenueTariff), margin + 3 * (kpiW + 2), kpiW);
-  y += 15;
+  kpi('DC Capacity', `${power.dcCapacityMWp} MWp`, M, kpiW);
+  kpi('AC Capacity', `${power.acCapacityMWac} MWac`, M + kpiW + 2, kpiW);
+  kpi('DC/AC Ratio', `${selectedRatio.toFixed(2)}x`, M + 2 * (kpiW + 2), kpiW);
+  kpi('Orientation', orientation.charAt(0).toUpperCase() + orientation.slice(1).replace('-', ' '), M + 3 * (kpiW + 2), kpiW);
+  y += 13;
 
-  addKPI('Cap. Factor AC', `${(selected.capacityFactorAC * 100).toFixed(2)}%`, margin, kpiW);
-  addKPI('Specific Yield', `${fmt(selected.annualInjectedMWh / power.dcCapacityMWp, 0)} kWh/kWp`, margin + kpiW + 2, kpiW);
-  addKPI('€/MWp (Market)', fmtK(selected.revenuePerMWpMarket), margin + 2 * (kpiW + 2), kpiW);
-  addKPI('Weighted Price', `${fmt(selected.marketValueWeightedPrice, 1)} €/MWh`, margin + 3 * (kpiW + 2), kpiW);
-  y += 16;
+  const revLabel = price.revenueMode === 'market' ? 'Market Price' : price.revenueMode === 'tariff' ? 'Fixed Tariff' : 'Comparison';
+  kpi('Revenue Mode', revLabel, M, kpiW * 2 + 2);
+  kpi('Price Source', price.priceSource === 'csv' ? 'User CSV' : 'SMARD.de 2024', M + 2 * (kpiW + 2), kpiW);
+  kpi('BESS', bess.duration !== 'none' ? `${bess.duration} BESS` : 'None', M + 3 * (kpiW + 2), kpiW);
+  y += 14;
 
-  // ─── OPTIMIZATION TABLE ──────────────────────────────────────────────────
-  addSection('DC/AC RATIO COMPARISON');
+  // ─── SELECTED SCENARIO KPIs ─────────────────────────────────────────────
+  section(`SELECTED SCENARIO — DC/AC = ${selectedRatio.toFixed(2)}x`);
+
+  kpi('Annual Gen. (Yr1)', `${fmt(selected.annualGeneratedMWh, 0)} MWh`, M, kpiW);
+  kpi('Annual Injected', `${fmt(selected.annualInjectedMWh, 0)} MWh`, M + kpiW + 2, kpiW);
+  kpi('Clipping', `${selected.clippingPercent.toFixed(2)}%`, M + 2 * (kpiW + 2), kpiW);
+  kpi('FLH AC', `${fmt(selected.fullLoadHoursAC, 0)} h`, M + 3 * (kpiW + 2), kpiW);
+  y += 13;
+
+  kpi('Lifetime Generated', `${fmt(selected.lifetimeGeneratedMWh, 0)} MWh`, M, kpiW);
+  kpi('Lifetime Injected', `${fmt(selected.lifetimeInjectedMWh, 0)} MWh`, M + kpiW + 2, kpiW);
+  kpi('Rev. Market (LT)', fmtK(selected.lifetimeRevenueMarket), M + 2 * (kpiW + 2), kpiW);
+  kpi('Rev. Tariff (LT)', fmtK(selected.lifetimeRevenueTariff), M + 3 * (kpiW + 2), kpiW);
+  y += 13;
+
+  kpi('Cap. Factor AC', `${(selected.capacityFactorAC * 100).toFixed(2)}%`, M, kpiW);
+  kpi('Spec. Yield', `${fmt(selected.annualInjectedMWh / power.dcCapacityMWp, 0)} kWh/kWp`, M + kpiW + 2, kpiW);
+  kpi('EUR/MWp (Market)', fmtK(selected.revenuePerMWpMarket), M + 2 * (kpiW + 2), kpiW);
+  kpi('Wtd. Price', `${fmt(selected.marketValueWeightedPrice, 1)} EUR/MWh`, M + 3 * (kpiW + 2), kpiW);
+  y += 14;
+
+  // ─── OPTIMIZATION TABLE ─────────────────────────────────────────────────
+  section('DC/AC RATIO COMPARISON');
 
   autoTable(doc, {
     startY: y,
-    margin: { left: margin, right: margin },
-    head: [['DC/AC', 'DC MWp', 'AC MWac', 'Gen. GWh', 'Inj. GWh', 'Clip %', 'Rev. Market', 'Rev. Tariff', '€/MWp', 'Status']],
+    margin: { left: M, right: M },
+    head: [['DC/AC', 'DC MWp', 'AC MWac', 'Gen GWh', 'Inj GWh', 'Clip %', 'Rev Market', 'Rev Tariff', 'EUR/MWp', 'Status']],
     body: scenarios.map(s => [
-      `${s.dcAcRatio.toFixed(2)}×`,
+      `${s.dcAcRatio.toFixed(2)}x`,
       fmt(s.dcMWp, 1),
       fmt(s.acMWac, 1),
       fmt(s.annualGeneratedMWh / 1000, 2),
@@ -157,56 +149,60 @@ export function exportResultsPDF(opts: ExportOptions) {
       fmtK(s.revenuePerMWpMarket),
       s.isOptimalTechnical ? 'Tech' : s.isOptimalMarginal ? 'Balanced' : s.isOptimalEconomic ? 'Econ' : '',
     ]),
+    theme: 'grid',
     styles: {
       fontSize: 7,
       cellPadding: 1.5,
-      textColor: [...LIGHT_TEXT] as [number, number, number],
-      fillColor: [...DARK_BG] as [number, number, number],
+      textColor: [220, 220, 230],
+      fillColor: [15, 23, 42],
       lineColor: [51, 65, 85],
-      lineWidth: 0.1,
+      lineWidth: 0.2,
+      font: 'helvetica',
     },
     headStyles: {
-      fillColor: [...MEDIUM_BG] as [number, number, number],
-      textColor: [...BRAND_GREEN] as [number, number, number],
+      fillColor: [30, 41, 59],
+      textColor: [16, 185, 129],
       fontStyle: 'bold',
       fontSize: 7,
     },
     alternateRowStyles: {
-      fillColor: [20, 30, 48] as [number, number, number],
+      fillColor: [20, 30, 48],
     },
     didParseCell: (data) => {
-      // Highlight selected row
       if (data.section === 'body' && scenarios[data.row.index]?.dcAcRatio === selectedRatio) {
-        data.cell.styles.fillColor = [16, 50, 60] as [number, number, number];
+        data.cell.styles.fillColor = [16, 50, 60];
         data.cell.styles.textColor = [16, 185, 129];
         data.cell.styles.fontStyle = 'bold';
       }
     },
   });
 
+  // Get Y after table
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  y = (doc as any).lastAutoTable?.finalY + 5 || y + 60;
+  const afterTable1 = (doc as any).lastAutoTable?.finalY ?? y + 50;
+  y = afterTable1 + 5;
 
-  // ─── GRID CONNECTION (page 2) ────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PAGE 2 — Grid Connection & Economics
+  // ═══════════════════════════════════════════════════════════════════════════
   doc.addPage();
   drawBg();
-  y = margin;
+  y = M;
 
-  addSection('GRID CONNECTION ASSESSMENT');
+  section('GRID CONNECTION ASSESSMENT');
 
   const sub = getSubstationRecommendation(power.acCapacityMWac);
   const cable = calculateCableRoute(power.acCapacityMWac);
 
-  const kpiW2 = (contentW - 4) / 3;
-  addKPI('Substation Type', sub.label, margin, kpiW2);
-  addKPI('Voltage Level', sub.voltageLabelKV, margin + kpiW2 + 2, kpiW2);
-  addKPI('Lead Time', sub.typicalLeadTime, margin + 2 * (kpiW2 + 2), kpiW2);
-  y += 15;
+  kpi('Substation Type', sub.label, M, kpi3W);
+  kpi('Voltage Level', sub.voltageLabelKV, M + kpi3W + 2, kpi3W);
+  kpi('Lead Time', sub.typicalLeadTime, M + 2 * (kpi3W + 2), kpi3W);
+  y += 13;
 
-  addKPI('Max Cable Route', `${cable.effectiveMaxKm.toFixed(1)} km`, margin, kpiW2);
-  addKPI('Cable Type', cable.cableType, margin + kpiW2 + 2, kpiW2);
-  addKPI('Operating Current', `${cable.currentA} A`, margin + 2 * (kpiW2 + 2), kpiW2);
-  y += 16;
+  kpi('Max Cable Route', `${cable.effectiveMaxKm.toFixed(1)} km`, M, kpi3W);
+  kpi('Cable Type', cable.cableType, M + kpi3W + 2, kpi3W);
+  kpi('Operating Current', `${cable.currentA} A`, M + 2 * (kpi3W + 2), kpi3W);
+  y += 14;
 
   // MV vs HV economics
   const econ = calculateSubstationEconomics(
@@ -219,79 +215,79 @@ export function exportResultsPDF(opts: ExportOptions) {
   );
 
   if (econ.recommendation !== 'same_level') {
-    addSection('MV vs. HV SUBSTATION ECONOMICS');
+    section('MV vs. HV SUBSTATION ECONOMICS');
 
     autoTable(doc, {
       startY: y,
-      margin: { left: margin, right: margin },
+      margin: { left: M, right: M },
       head: [['Parameter', 'Option A: HV (DC/AC=1.0)', 'Option B: MV (current)']],
       body: [
         ['AC Capacity', `${econ.hvAcCapacityMWac} MWac`, `${econ.mvAcCapacityMWac} MWac`],
         ['Connection Level', econ.hvSubstation.voltageLabelKV, econ.mvSubstation.voltageLabelKV],
         ['Substation Type', econ.hvSubstation.label, econ.mvSubstation.label],
-        ['Substation Cost', `${fmtK2(econ.hvCostKEur.substationKEur)}`, `${fmtK2(econ.mvCostKEur.substationKEur)}`],
-        ['Permitting & Studies', `${fmtK2(econ.hvCostKEur.permittingKEur)}`, `${fmtK2(econ.mvCostKEur.permittingKEur)}`],
-        ['Total Infrastructure', `${fmtK2(econ.hvCostKEur.totalKEur)}`, `${fmtK2(econ.mvCostKEur.totalKEur)}`],
+        ['', '', ''],
+        ['Substation Cost', fmtK2(econ.hvCostKEur.substationKEur), fmtK2(econ.mvCostKEur.substationKEur)],
+        ['Permitting & Studies', fmtK2(econ.hvCostKEur.permittingKEur), fmtK2(econ.mvCostKEur.permittingKEur)],
+        ['Total Infrastructure', fmtK2(econ.hvCostKEur.totalKEur), fmtK2(econ.mvCostKEur.totalKEur)],
+        ['', '', ''],
         ['Clipping Loss', '0%', `${econ.clippingPercent.toFixed(2)}%`],
         ['Lead Time', econ.hvSubstation.typicalLeadTime, econ.mvSubstation.typicalLeadTime],
         ['', '', ''],
-        ['Infrastructure Saving (MV)', '', `${fmtK2(econ.infrastructureSavingKEur)}`],
-        ['Clipping Revenue Loss', '', `${fmtK2(econ.lifetimeClippingRevenueLossKEur)}`],
+        ['Infrastructure Saving (MV)', '', fmtK2(econ.infrastructureSavingKEur)],
+        ['Clipping Revenue Loss', '', fmtK2(econ.lifetimeClippingRevenueLossKEur)],
         ['NET ADVANTAGE (MV)', '', `${econ.netAdvantageKEur > 0 ? '+' : ''}${fmtK2(econ.netAdvantageKEur)}`],
       ],
+      theme: 'grid',
       styles: {
         fontSize: 7.5,
         cellPadding: 2,
-        textColor: [...LIGHT_TEXT] as [number, number, number],
-        fillColor: [...DARK_BG] as [number, number, number],
+        textColor: [220, 220, 230],
+        fillColor: [15, 23, 42],
         lineColor: [51, 65, 85],
-        lineWidth: 0.1,
+        lineWidth: 0.2,
+        font: 'helvetica',
       },
       headStyles: {
-        fillColor: [...MEDIUM_BG] as [number, number, number],
-        textColor: [...BRAND_GREEN] as [number, number, number],
+        fillColor: [30, 41, 59],
+        textColor: [16, 185, 129],
         fontStyle: 'bold',
       },
       alternateRowStyles: {
-        fillColor: [20, 30, 48] as [number, number, number],
+        fillColor: [20, 30, 48],
       },
       didParseCell: (data) => {
-        // Bold the summary rows
-        if (data.section === 'body' && data.row.index >= 9) {
+        if (data.section === 'body' && data.row.index >= 11) {
           data.cell.styles.fontStyle = 'bold';
-          if (data.row.index === 11) {
-            data.cell.styles.textColor = econ.netAdvantageKEur > 0 ? [16, 185, 129] : [251, 146, 60];
-          }
+        }
+        if (data.section === 'body' && data.row.index === 13) {
+          data.cell.styles.textColor = econ.netAdvantageKEur > 0 ? [16, 185, 129] : [251, 146, 60];
+          data.cell.styles.fontSize = 9;
         }
       },
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    y = (doc as any).lastAutoTable?.finalY + 5 || y + 60;
+    const afterTable2 = (doc as any).lastAutoTable?.finalY ?? y + 60;
+    y = afterTable2 + 4;
 
-    addText(`Recommendation: ${econ.recommendationText}`, margin, y, { size: 8, color: MUTED_TEXT, maxWidth: contentW });
-    y += 12;
+    text(`Recommendation: ${econ.recommendationText}`, M, y, 8, [148, 163, 184], 'normal', W);
+    y += 14;
   }
 
-  // ─── DISCLAIMER ──────────────────────────────────────────────────────────
-  if (y > 240) { doc.addPage(); drawBg(); y = margin; }
-  addSection('DISCLAIMER');
-  addText(
+  // ─── DISCLAIMER ─────────────────────────────────────────────────────────
+  if (y > 240) { doc.addPage(); drawBg(); y = M; }
+  section('DISCLAIMER');
+  text(
     'This report provides a comparative pre-feasibility calculation. It does not replace a bankable yield assessment, ' +
-    'detailed PVSyst simulation, grid connection study, or final investment model. Market price data from SMARD.de (2024). ' +
+    'detailed PVSyst simulation, grid connection study, or final investment model. Market price data from SMARD.de (2024, CC BY 4.0). ' +
     'All data sources should be verified against project-specific conditions before investment decisions.',
-    margin, y, { size: 7, color: MUTED_TEXT, maxWidth: contentW }
+    M, y, 7, [148, 163, 184], 'normal', W,
   );
-  y += 12;
-  addText('Source: Bundesnetzagentur | SMARD.de — CC BY 4.0', margin, y, { size: 6, color: MUTED_TEXT });
-  addText(`Generated: ${now.toISOString()}`, margin, y + 4, { size: 6, color: MUTED_TEXT });
+  y += 14;
+  text(`Source: Bundesnetzagentur | SMARD.de — CC BY 4.0  |  Generated: ${now.toISOString()}`, M, y, 6, [100, 116, 139]);
 
-  // ─── SAVE ────────────────────────────────────────────────────────────────
-  const filename = `${(project.name || 'PV_Project').replace(/\s+/g, '_')}_DCAC_Report_${now.toISOString().slice(0, 10)}.pdf`;
+  // ─── SAVE ───────────────────────────────────────────────────────────────
+  const safeName = (project.name || 'PV_Project').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `${safeName}_DCAC_Report_${now.toISOString().slice(0, 10)}.pdf`;
   doc.save(filename);
-}
-
-function fmtK2(v: number): string {
-  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)} M€`;
-  return `${v} k€`;
 }
