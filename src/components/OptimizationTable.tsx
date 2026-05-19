@@ -97,7 +97,7 @@ export const OptimizationTable: React.FC<Props> = ({ scenarios, selectedRatio, o
                     <div className="flex items-center justify-center gap-1">
                       {s.isOptimalTechnical && <Badge color="blue" text="Tech" />}
                       {s.isOptimalEconomic && <Badge color="emerald" text="Econ" />}
-                      {s.isOptimalMarginal && <Badge color="purple" text="Marg" />}
+                      {s.isOptimalMarginal && <Badge color="purple" text="Balanced" />}
                       {s.clippingWarning && <Badge color="amber" text="⚠" />}
                     </div>
                   </td>

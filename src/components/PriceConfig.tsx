@@ -83,7 +83,7 @@ export const PriceConfigPanel: React.FC<Props> = ({ config, onChange }) => {
                   ? 'text-emerald-300 bg-emerald-500/15'
                   : 'text-amber-300 bg-amber-500/15'
               }`}>
-                {config.priceSource === 'csv' ? 'User CSV' : 'Sample Data'}
+                {config.priceSource === 'csv' ? 'User CSV' : 'Sample (DE Day-Ahead)'}
               </span>
             </div>
 
@@ -106,6 +106,7 @@ export const PriceConfigPanel: React.FC<Props> = ({ config, onChange }) => {
       {config.priceSource === 'sample' && config.revenueMode !== 'tariff' && (
         <p className="text-[10px] text-amber-400/70 italic leading-tight">
           Using representative German day-ahead price shape. Upload actual price data for project-specific analysis.
+          Recommended sources: <strong>SMARD.de</strong> or <strong>Energy-Charts.info</strong> (hourly CSV export).
         </p>
       )}
     </div>

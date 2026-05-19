@@ -72,7 +72,7 @@ export const Methodology: React.FC = () => {
             The optimal ratio balances additional energy capture against clipping losses.
             <br />• <strong>Technical optimum:</strong> Lowest clipping percentage (ratio = 1.00).
             <br />• <strong>Economic optimum:</strong> Highest total lifetime revenue.
-            <br />• <strong>Marginal optimum:</strong> Highest incremental revenue per additional MWp DC.
+            <br />• <strong>Balanced optimum:</strong> Highest incremental revenue per additional MWp DC — the best trade-off between additional energy capture and diminishing returns from clipping.
             <br /><br />
             When marginal DC capacity creates mostly clipped energy, further DC oversizing is uneconomical.
           </Section>
