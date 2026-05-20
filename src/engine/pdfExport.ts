@@ -2,6 +2,7 @@
  * pdfExport.ts — Generate a professional PDF report of optimization results
  *
  * Uses jspdf v4 + jspdf-autotable v5
+ * White background, professional print-ready layout
  */
 
 import { jsPDF } from 'jspdf';
@@ -21,6 +22,23 @@ interface ExportOptions {
   selectedRatio: number;
 }
 
+// ─── Color palette (white background, professional print) ────────────────────
+const C = {
+  black:    [20, 20, 20],
+  dark:     [40, 40, 50],
+  body:     [60, 60, 70],
+  muted:    [120, 120, 130],
+  light:    [180, 180, 190],
+  border:   [210, 210, 215],
+  bgLight:  [245, 246, 248],
+  white:    [255, 255, 255],
+  accent:   [5, 120, 85],     // deep teal-green for headings
+  accentLt: [230, 245, 240],  // light teal background
+  warn:     [180, 90, 20],    // orange for warnings
+  pos:      [15, 130, 75],    // green for positive values
+  neg:      [190, 60, 40],    // red for negative values
+};
+
 export function exportResultsPDF(opts: ExportOptions) {
   const { project, power, orientation, price, bess, scenarios, selectedRatio } = opts;
   const selected = scenarios.find(s => s.dcAcRatio === selectedRatio) || scenarios[0];
@@ -28,26 +46,18 @@ export function exportResultsPDF(opts: ExportOptions) {
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const M = 15; // margin
-  const W = pageW - 2 * M; // content width
+  const M = 15;
+  const W = pageW - 2 * M;
   let y = M;
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit' });
   const fmt = (v: number, d = 2) => v.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
-  const fmtK = (v: number) => Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(2)} M€` : `${(v / 1e3).toFixed(0)} k€`;
-  const fmtK2 = (v: number) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(1)} M€` : `${v} k€`;
-
-  // ─── Background ──────────────────────────────────────────────────────────
-  const drawBg = () => {
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, pageW, pageH, 'F');
-  };
-  drawBg();
+  const fmtK = (v: number) => Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(2)} M\u20AC` : `${(v / 1e3).toFixed(0)} k\u20AC`;
+  const fmtK2 = (v: number) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(1)} M\u20AC` : `${v} k\u20AC`;
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
-  const text = (str: string, x: number, yy: number, size = 10, color = [248, 250, 252], style = 'normal', maxW?: number) => {
+  const text = (str: string, x: number, yy: number, size = 10, color = C.body, style = 'normal', maxW?: number) => {
     doc.setFontSize(size);
     doc.setTextColor(color[0], color[1], color[2]);
     doc.setFont('helvetica', style);
@@ -55,22 +65,30 @@ export function exportResultsPDF(opts: ExportOptions) {
     else doc.text(str, x, yy);
   };
 
+  const newPage = () => {
+    doc.addPage();
+    y = M;
+  };
+
   const section = (title: string) => {
-    if (y > 265) { doc.addPage(); drawBg(); y = M; }
+    if (y > 265) newPage();
     y += 3;
-    doc.setFillColor(30, 41, 59);
+    doc.setFillColor(C.accentLt[0], C.accentLt[1], C.accentLt[2]);
     doc.rect(M, y - 3, W, 7, 'F');
-    text(title, M + 3, y + 2, 9, [16, 185, 129], 'bold');
+    // Left accent bar
+    doc.setFillColor(C.accent[0], C.accent[1], C.accent[2]);
+    doc.rect(M, y - 3, 2, 7, 'F');
+    text(title, M + 5, y + 2, 9, C.accent, 'bold');
     y += 10;
   };
 
   const kpi = (label: string, value: string, x: number, w: number) => {
-    doc.setFillColor(30, 41, 59);
+    doc.setFillColor(C.bgLight[0], C.bgLight[1], C.bgLight[2]);
     doc.rect(x, y, w, 11, 'F');
-    doc.setDrawColor(51, 65, 85);
+    doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
     doc.rect(x, y, w, 11, 'S');
-    text(label, x + 2, y + 4, 6, [148, 163, 184]);
-    text(value, x + 2, y + 9, 8, [248, 250, 252], 'bold');
+    text(label, x + 2, y + 4, 6, C.muted);
+    text(value, x + 2, y + 9, 8, C.dark, 'bold');
   };
 
   const kpiW = (W - 6) / 4;
@@ -80,13 +98,13 @@ export function exportResultsPDF(opts: ExportOptions) {
   // PAGE 1 — Project Summary & Optimization Table
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Header
-  doc.setFillColor(16, 185, 129);
-  doc.rect(M, y, 3, 12, 'F');
-  text('DC/AC Ratio Optimizer', M + 6, y + 5, 15, [248, 250, 252], 'bold');
-  text('Utility-Scale PV — Pre-Feasibility Analysis Report', M + 6, y + 10, 7, [148, 163, 184]);
-  text(dateStr, pageW - M - 25, y + 5, 8, [148, 163, 184]);
-  y += 16;
+  // Header bar
+  doc.setFillColor(C.accent[0], C.accent[1], C.accent[2]);
+  doc.rect(M, y, W, 14, 'F');
+  text('DC/AC Ratio Optimizer', M + 4, y + 6, 14, C.white, 'bold');
+  text('Utility-Scale PV \u2014 Pre-Feasibility Analysis Report', M + 4, y + 11, 7, [180, 230, 210]);
+  text(dateStr, pageW - M - 25, y + 6, 8, [200, 240, 220]);
+  y += 18;
 
   // ─── PROJECT SUMMARY ────────────────────────────────────────────────────
   section('PROJECT SUMMARY');
@@ -110,7 +128,7 @@ export function exportResultsPDF(opts: ExportOptions) {
   y += 14;
 
   // ─── SELECTED SCENARIO KPIs ─────────────────────────────────────────────
-  section(`SELECTED SCENARIO — DC/AC = ${selectedRatio.toFixed(2)}x`);
+  section(`SELECTED SCENARIO \u2014 DC/AC = ${selectedRatio.toFixed(2)}x`);
 
   kpi('Annual Gen. (Yr1)', `${fmt(selected.annualGeneratedMWh, 0)} MWh`, M, kpiW);
   kpi('Annual Injected', `${fmt(selected.annualInjectedMWh, 0)} MWh`, M + kpiW + 2, kpiW);
@@ -153,31 +171,30 @@ export function exportResultsPDF(opts: ExportOptions) {
     styles: {
       fontSize: 7,
       cellPadding: 1.5,
-      textColor: [220, 220, 230],
-      fillColor: [15, 23, 42],
-      lineColor: [51, 65, 85],
+      textColor: C.dark as [number, number, number],
+      fillColor: C.white as [number, number, number],
+      lineColor: C.border as [number, number, number],
       lineWidth: 0.2,
       font: 'helvetica',
     },
     headStyles: {
-      fillColor: [30, 41, 59],
-      textColor: [16, 185, 129],
+      fillColor: C.accent as [number, number, number],
+      textColor: C.white as [number, number, number],
       fontStyle: 'bold',
       fontSize: 7,
     },
     alternateRowStyles: {
-      fillColor: [20, 30, 48],
+      fillColor: C.bgLight as [number, number, number],
     },
     didParseCell: (data) => {
       if (data.section === 'body' && scenarios[data.row.index]?.dcAcRatio === selectedRatio) {
-        data.cell.styles.fillColor = [16, 50, 60];
-        data.cell.styles.textColor = [16, 185, 129];
+        data.cell.styles.fillColor = C.accentLt as [number, number, number];
+        data.cell.styles.textColor = C.accent as [number, number, number];
         data.cell.styles.fontStyle = 'bold';
       }
     },
   });
 
-  // Get Y after table
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const afterTable1 = (doc as any).lastAutoTable?.finalY ?? y + 50;
   y = afterTable1 + 5;
@@ -185,9 +202,7 @@ export function exportResultsPDF(opts: ExportOptions) {
   // ═══════════════════════════════════════════════════════════════════════════
   // PAGE 2 — Grid Connection & Economics
   // ═══════════════════════════════════════════════════════════════════════════
-  doc.addPage();
-  drawBg();
-  y = M;
+  newPage();
 
   section('GRID CONNECTION ASSESSMENT');
 
@@ -241,26 +256,26 @@ export function exportResultsPDF(opts: ExportOptions) {
       styles: {
         fontSize: 7.5,
         cellPadding: 2,
-        textColor: [220, 220, 230],
-        fillColor: [15, 23, 42],
-        lineColor: [51, 65, 85],
+        textColor: C.dark as [number, number, number],
+        fillColor: C.white as [number, number, number],
+        lineColor: C.border as [number, number, number],
         lineWidth: 0.2,
         font: 'helvetica',
       },
       headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: [16, 185, 129],
+        fillColor: C.accent as [number, number, number],
+        textColor: C.white as [number, number, number],
         fontStyle: 'bold',
       },
       alternateRowStyles: {
-        fillColor: [20, 30, 48],
+        fillColor: C.bgLight as [number, number, number],
       },
       didParseCell: (data) => {
         if (data.section === 'body' && data.row.index >= 11) {
           data.cell.styles.fontStyle = 'bold';
         }
         if (data.section === 'body' && data.row.index === 13) {
-          data.cell.styles.textColor = econ.netAdvantageKEur > 0 ? [16, 185, 129] : [251, 146, 60];
+          data.cell.styles.textColor = (econ.netAdvantageKEur > 0 ? C.pos : C.neg) as [number, number, number];
           data.cell.styles.fontSize = 9;
         }
       },
@@ -270,21 +285,26 @@ export function exportResultsPDF(opts: ExportOptions) {
     const afterTable2 = (doc as any).lastAutoTable?.finalY ?? y + 60;
     y = afterTable2 + 4;
 
-    text(`Recommendation: ${econ.recommendationText}`, M, y, 8, [148, 163, 184], 'normal', W);
+    text(`Recommendation: ${econ.recommendationText}`, M, y, 8, C.body, 'italic', W);
     y += 14;
   }
 
   // ─── DISCLAIMER ─────────────────────────────────────────────────────────
-  if (y > 240) { doc.addPage(); drawBg(); y = M; }
-  section('DISCLAIMER');
+  if (y > 240) newPage();
+  y += 3;
+  doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+  doc.line(M, y, M + W, y);
+  y += 5;
+  text('DISCLAIMER', M, y, 7, C.muted, 'bold');
+  y += 4;
   text(
     'This report provides a comparative pre-feasibility calculation. It does not replace a bankable yield assessment, ' +
     'detailed PVSyst simulation, grid connection study, or final investment model. Market price data from SMARD.de (2024, CC BY 4.0). ' +
     'All data sources should be verified against project-specific conditions before investment decisions.',
-    M, y, 7, [148, 163, 184], 'normal', W,
+    M, y, 7, C.muted, 'normal', W,
   );
   y += 14;
-  text(`Source: Bundesnetzagentur | SMARD.de — CC BY 4.0  |  Generated: ${now.toISOString()}`, M, y, 6, [100, 116, 139]);
+  text(`Source: Bundesnetzagentur | SMARD.de \u2014 CC BY 4.0  |  Generated: ${now.toISOString()}`, M, y, 6, C.light);
 
   // ─── SAVE ───────────────────────────────────────────────────────────────
   const safeName = (project.name || 'PV_Project').replace(/[^a-zA-Z0-9_-]/g, '_');
