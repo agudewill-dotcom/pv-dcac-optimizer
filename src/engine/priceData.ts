@@ -8,18 +8,25 @@
  * Default price profile: SMARD.de 2024 hourly day-ahead auction (8760h)
  * Source: Bundesnetzagentur | SMARD.de via Energy-Charts API
  * License: CC BY 4.0 (creativecommons.org/licenses/by/4.0)
- * Average: 78.56 EUR/MWh | Min: -135.45 | Max: 936.28
- * Negative hours: 457 (duck curve / solar surplus)
  */
 
 import { HOURS_PER_YEAR } from '../types';
 import { SMARD_2024_PRICES } from '../data/smard2024';
 
+export interface PriceStats {
+  averagePrice: number;
+  minPrice: number;
+  maxPrice: number;
+  negativeHours: number;
+  missingHours: number;
+  totalHours: number;
+}
+
 /**
  * Return the SMARD 2024 DE-LU day-ahead price profile (8760 hours, EUR/MWh).
  * This is real market data from Bundesnetzagentur | SMARD.de.
  */
-export function generateSamplePriceProfile(): number[] {
+export function getDefaultPriceProfile(): number[] {
   // Return a copy to prevent mutation
   return SMARD_2024_PRICES.slice(0, HOURS_PER_YEAR);
 }
@@ -36,7 +43,7 @@ export function generateSamplePriceProfile(): number[] {
  * If fewer than 8760 rows, pads with the mean of available data.
  * If more than 8760 rows, truncates.
  */
-export function parsePriceCSV(csvText: string): { prices: number[]; warnings: string[] } {
+export function parsePriceCSV(csvText: string): { prices: number[]; missingHours: number; warnings: string[] } {
   const warnings: string[] = [];
   const lines = csvText.trim().split('\n');
 
@@ -58,18 +65,44 @@ export function parsePriceCSV(csvText: string): { prices: number[]; warnings: st
 
   if (prices.length === 0) {
     warnings.push('No valid price data found in CSV.');
-    return { prices: generateSamplePriceProfile(), warnings };
+    return { prices: getDefaultPriceProfile(), missingHours: HOURS_PER_YEAR, warnings };
   }
 
+  let missingHours = 0;
   if (prices.length < HOURS_PER_YEAR) {
+    missingHours = HOURS_PER_YEAR - prices.length;
     const mean = prices.reduce((a, b) => a + b, 0) / prices.length;
-    warnings.push(`Only ${prices.length} price values found. Padding remaining ${HOURS_PER_YEAR - prices.length} hours with mean (${mean.toFixed(1)} EUR/MWh).`);
+    warnings.push(`Only ${prices.length} price values found. Padding remaining ${missingHours} hours with mean (${mean.toFixed(1)} EUR/MWh).`);
     while (prices.length < HOURS_PER_YEAR) {
       prices.push(mean);
     }
   }
 
-  return { prices: prices.slice(0, HOURS_PER_YEAR), warnings };
+  return { prices: prices.slice(0, HOURS_PER_YEAR), missingHours, warnings };
+}
+
+/**
+ * Get detailed stats from a price profile.
+ */
+export function getPriceStats(prices: number[], missingHours: number = 0): PriceStats {
+  if (prices.length === 0) {
+    return { averagePrice: 0, minPrice: 0, maxPrice: 0, negativeHours: 0, missingHours, totalHours: 0 };
+  }
+  let sum = 0, min = prices[0], max = prices[0], neg = 0;
+  for (const p of prices) {
+    sum += p;
+    if (p < min) min = p;
+    if (p > max) max = p;
+    if (p < 0) neg++;
+  }
+  return {
+    averagePrice: sum / prices.length,
+    minPrice: min,
+    maxPrice: max,
+    negativeHours: neg,
+    missingHours,
+    totalHours: prices.length
+  };
 }
 
 /**

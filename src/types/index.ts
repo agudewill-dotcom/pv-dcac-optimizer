@@ -1,17 +1,22 @@
-// ─── Optimization Modes ──────────────────────────────────────────────────────
 export type OptimizationMode = 'ac_fixed' | 'dc_fixed' | 'free';
 export type RevenueMode = 'market' | 'tariff' | 'hybrid';
 export type Orientation = 'south' | 'east_west' | 'south_east' | 'south_west';
 export type BessDuration = 'none' | '2h' | '4h';
+export type ProductionCase = 'p50' | 'p90' | 'compare';
 
-// ─── Project Configuration ───────────────────────────────────────────────────
 export interface ProjectConfig {
   name: string;
   country: string;
+  lat: number;                   // Latitude for PVGIS
+  lon: number;                   // Longitude for PVGIS
   lifetimeYears: number;
   degradationRate: number;       // e.g. 0.004 = 0.4%/a
   availabilityFactor: number;    // e.g. 0.98 = 98%
   curtailmentFactor: number;     // e.g. 0.0 = 0%
+  pvgisProfile?: number[];       // Optional fetched PVGIS profile (8760h)
+  p90Ratio: number;              // e.g. 0.90
+  customP50Profile?: number[];   // Uploaded P50
+  customP90Profile?: number[];   // Uploaded P90
 }
 
 // ─── Power Configuration ─────────────────────────────────────────────────────
@@ -27,7 +32,9 @@ export interface PriceConfig {
   revenueMode: RevenueMode;
   fixedTariffEurMWh: number;     // EUR/MWh
   priceProfile: number[];        // 8760 hourly prices EUR/MWh
-  priceSource: string;           // label: 'sample' | 'csv' | 'api'
+  priceSource: string;           // label: 'smard_2024' | 'csv' | 'api'
+  priceEscalation: number;       // e.g. 0.02 = 2%/a
+  tariffEscalation: number;      // e.g. 0.00 = 0%/a
 }
 
 // ─── BESS Configuration ──────────────────────────────────────────────────────
@@ -36,6 +43,12 @@ export interface BessConfig {
   powerMW: number;               // BESS power rating in MW (charge/discharge)
   roundTripEfficiency: number;   // e.g. 0.88 = 88%
   maxCycles: number;             // max daily full-equivalent cycles
+}
+
+// ─── Grid Connection Config ──────────────────────────────────────────────────
+export interface GridConfig {
+  hvBaseCostKEur: number;
+  mvBaseCostKEur: number;
 }
 
 // ─── Optional CAPEX/Economics ────────────────────────────────────────────────
@@ -68,17 +81,30 @@ export interface ScenarioResult {
   fullLoadHoursDC: number;
 
   // Revenue metrics
-  annualRevenueMarket: number;
-  annualRevenueTariff: number;
+  year1RevenueMarket: number;
+  year1RevenueTariff: number;
   lifetimeRevenueMarket: number;
   lifetimeRevenueTariff: number;
+  year1ClippingLossMarket: number;
+  lifetimeClippingLossMarket: number;
   revenuePerMWpMarket: number;
   revenuePerMWacMarket: number;
   revenuePerMWpTariff: number;
   revenuePerMWacTariff: number;
+  
+  // Marginal metrics
+  marginalGeneratedMWh: number;
+  marginalInjectedMWh: number;
+  marginalClippedMWh: number;
   marginalRevenueMarket: number;
   marginalRevenueTariff: number;
-  marketValueWeightedPrice: number;  // EUR/MWh
+  marginalRevenuePerMWpMarket: number;
+  marginalClippingShare: number;     // % of marginal generation that is clipped
+  
+  // Capture price metrics
+  averageMarketPrice: number;        // EUR/MWh (simple average)
+  capturePriceMarket: number;        // EUR/MWh (generation-weighted)
+  marketCaptureFactor: number;       // capturePrice / averagePrice
 
   // Flags
   isOptimalTechnical: boolean;
@@ -105,14 +131,27 @@ export interface ScenarioResult {
   hourlyBessDischarge?: number[]; // 8760 values
 }
 
+export interface CombinedScenarioResult {
+  dcAcRatio: number;
+  dcMWp: number;
+  acMWac: number;
+  p50: ScenarioResult;
+  p90: ScenarioResult;
+  isRobustOptimum: boolean;
+}
+
 // ─── Full App State ──────────────────────────────────────────────────────────
+
 export interface AppState {
+  productionCase: ProductionCase;
   project: ProjectConfig;
   power: PowerConfig;
   orientation: Orientation;
   price: PriceConfig;
   capex: CapexConfig;
-  scenarios: ScenarioResult[];
+  grid: GridConfig;
+  bess: BessConfig;
+  scenarios: CombinedScenarioResult[];
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -120,12 +159,15 @@ export const HOURS_PER_YEAR = 8760;
 export const DEFAULT_RATIO_STEPS = [1.00, 1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.45, 1.50];
 
 export const DEFAULT_PROJECT: ProjectConfig = {
-  name: 'Utility-Scale PV Project',
+  name: 'Utility-Scale Solar PV',
   country: 'Germany',
+  lat: 51.1657,
+  lon: 10.4515,
   lifetimeYears: 25,
-  degradationRate: 0.004,
+  degradationRate: 0.005,
   availabilityFactor: 0.98,
-  curtailmentFactor: 0.0,
+  curtailmentFactor: 0.02,
+  p90Ratio: 0.90,
 };
 
 export const DEFAULT_POWER: PowerConfig = {
@@ -137,9 +179,11 @@ export const DEFAULT_POWER: PowerConfig = {
 
 export const DEFAULT_PRICE: PriceConfig = {
   revenueMode: 'hybrid',
-  fixedTariffEurMWh: 70,
+  fixedTariffEurMWh: 49.4, // Sourced from BNetzA (01.03.2026 average award)
   priceProfile: [],
   priceSource: 'smard_2024',
+  priceEscalation: 0.0,
+  tariffEscalation: 0.0,
 };
 
 export const DEFAULT_BESS: BessConfig = {
@@ -147,6 +191,11 @@ export const DEFAULT_BESS: BessConfig = {
   powerMW: 25,
   roundTripEfficiency: 0.88,
   maxCycles: 1,
+};
+
+export const DEFAULT_GRID_CONFIG: GridConfig = {
+  hvBaseCostKEur: 2500,
+  mvBaseCostKEur: 800,
 };
 
 export const DEFAULT_CAPEX: CapexConfig = {

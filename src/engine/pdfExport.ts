@@ -7,8 +7,8 @@
 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { ScenarioResult } from '../types';
-import type { ProjectConfig, PowerConfig, PriceConfig, BessConfig } from '../types';
+
+import type { ProjectConfig, PowerConfig, PriceConfig, BessConfig, GridConfig, CombinedScenarioResult } from '../types';
 import { getSubstationRecommendation, calculateCableRoute, calculateSubstationEconomics } from './gridConnection';
 import type { Orientation } from '../types';
 
@@ -18,7 +18,8 @@ interface ExportOptions {
   orientation: Orientation;
   price: PriceConfig;
   bess: BessConfig;
-  scenarios: ScenarioResult[];
+  grid: GridConfig;
+  scenarios: CombinedScenarioResult[];
   selectedRatio: number;
 }
 
@@ -40,9 +41,10 @@ const C = {
 };
 
 export function exportResultsPDF(opts: ExportOptions) {
-  const { project, power, orientation, price, bess, scenarios, selectedRatio } = opts;
-  const selected = scenarios.find(s => s.dcAcRatio === selectedRatio) || scenarios[0];
-  if (!selected) return;
+  const { project, power, orientation, price, bess, grid, scenarios, selectedRatio } = opts;
+  const combinedSelected = scenarios.find(s => s.dcAcRatio === selectedRatio) || scenarios[0];
+  if (!combinedSelected) return;
+  const selected = combinedSelected.p50;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -145,28 +147,32 @@ export function exportResultsPDF(opts: ExportOptions) {
   kpi('Cap. Factor AC', `${(selected.capacityFactorAC * 100).toFixed(2)}%`, M, kpiW);
   kpi('Spec. Yield', `${fmt(selected.annualInjectedMWh / power.dcCapacityMWp, 0)} kWh/kWp`, M + kpiW + 2, kpiW);
   kpi('EUR/MWp (Market)', fmtK(selected.revenuePerMWpMarket), M + 2 * (kpiW + 2), kpiW);
-  kpi('Wtd. Price', `${fmt(selected.marketValueWeightedPrice, 1)} EUR/MWh`, M + 3 * (kpiW + 2), kpiW);
+  kpi('Capture Price', `${fmt(selected.capturePriceMarket, 1)} EUR/MWh`, M + 3 * (kpiW + 2), kpiW);
   y += 14;
 
   // ─── OPTIMIZATION TABLE ─────────────────────────────────────────────────
   section('DC/AC RATIO COMPARISON');
+  const showMarket = price.revenueMode !== 'tariff';
+  const showTariff = price.revenueMode !== 'market';
 
   autoTable(doc, {
     startY: y,
     margin: { left: M, right: M },
-    head: [['DC/AC', 'DC MWp', 'AC MWac', 'Gen GWh', 'Inj GWh', 'Clip %', 'Rev Market', 'Rev Tariff', 'EUR/MWp', 'Status']],
-    body: scenarios.map(s => [
-      `${s.dcAcRatio.toFixed(2)}x`,
-      fmt(s.dcMWp, 1),
-      fmt(s.acMWac, 1),
-      fmt(s.annualGeneratedMWh / 1000, 2),
-      fmt(s.annualInjectedMWh / 1000, 2),
-      `${s.clippingPercent.toFixed(2)}%`,
-      fmtK(s.lifetimeRevenueMarket),
-      fmtK(s.lifetimeRevenueTariff),
-      fmtK(s.revenuePerMWpMarket),
-      s.isOptimalTechnical ? 'Tech' : s.isOptimalMarginal ? 'Balanced' : s.isOptimalEconomic ? 'Econ' : '',
-    ]),
+    head: [['DC/AC', 'DC MWp', 'Gen GWh', 'Inj GWh', 'Clip %', 'Rev Market', 'Rev Tariff', 'EUR/MWp', 'Status']],
+    body: scenarios.map(s => {
+      const res = s.p50;
+      return [
+        `${s.dcAcRatio.toFixed(2)}×`,
+        s.dcMWp.toFixed(1),
+        res.annualGeneratedMWh > 0 ? (res.annualGeneratedMWh / 1000).toFixed(2) : '—',
+        res.annualInjectedMWh > 0 ? (res.annualInjectedMWh / 1000).toFixed(2) : '—',
+        `${res.clippingPercent.toFixed(1)} %`,
+        showMarket ? fmtK2(res.lifetimeRevenueMarket) : '—',
+        showTariff ? fmtK2(res.lifetimeRevenueTariff) : '—',
+        showMarket ? fmtK(res.revenuePerMWpMarket) : '—',
+        res.isOptimalTechnical ? 'Tech' : (res.isOptimalMarginal ? 'Bal' : (res.isOptimalEconomic ? 'Econ' : (s.isRobustOptimum ? 'Robust' : '—'))),
+      ];
+    }),
     theme: 'grid',
     styles: {
       fontSize: 7,
@@ -227,6 +233,7 @@ export function exportResultsPDF(opts: ExportOptions) {
     selected.lifetimeRevenueMarket / 1e6,
     selected.lifetimeInjectedMWh,
     selected.clippingPercent,
+    grid
   );
 
   if (econ.recommendation !== 'same_level') {
@@ -241,7 +248,7 @@ export function exportResultsPDF(opts: ExportOptions) {
         ['Connection Level', econ.hvSubstation.voltageLabelKV, econ.mvSubstation.voltageLabelKV],
         ['Substation Type', econ.hvSubstation.label, econ.mvSubstation.label],
         ['', '', ''],
-        ['Substation Cost', fmtK2(econ.hvCostKEur.substationKEur), fmtK2(econ.mvCostKEur.substationKEur)],
+        ['EVU Connection / Substation', fmtK2(econ.hvCostKEur.substationKEur), fmtK2(econ.mvCostKEur.substationKEur)],
         ['Permitting & Studies', fmtK2(econ.hvCostKEur.permittingKEur), fmtK2(econ.mvCostKEur.permittingKEur)],
         ['Total Infrastructure', fmtK2(econ.hvCostKEur.totalKEur), fmtK2(econ.mvCostKEur.totalKEur)],
         ['', '', ''],

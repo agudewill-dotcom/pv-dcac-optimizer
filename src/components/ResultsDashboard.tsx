@@ -1,20 +1,23 @@
 import React from 'react';
 import { TrendingUp, AlertTriangle } from 'lucide-react';
-import type { ScenarioResult, RevenueMode } from '../types';
+import type { CombinedScenarioResult, RevenueMode, ProductionCase } from '../types';
 
 interface Props {
-  scenarios: ScenarioResult[];
+  scenarios: CombinedScenarioResult[];
   selectedRatio: number;
   revenueMode: RevenueMode;
+  productionCase: ProductionCase;
 }
 
-export const ResultsDashboard: React.FC<Props> = ({ scenarios, selectedRatio, revenueMode }) => {
-  if (scenarios.length === 0) return null;
+export const ResultsDashboard: React.FC<Props> = ({ scenarios, selectedRatio, revenueMode, productionCase }) => {
+  const combined = scenarios.find(s => s.dcAcRatio === selectedRatio) || scenarios[0];
+  if (!combined) return null;
+  const current = productionCase === 'p90' ? combined.p90 : combined.p50;
 
-  const current = scenarios.find(s => s.dcAcRatio === selectedRatio) || scenarios[0];
-  const techOptimal = scenarios.find(s => s.isOptimalTechnical);
-  const econOptimal = scenarios.find(s => s.isOptimalEconomic);
-  const balancedOptimal = scenarios.find(s => s.isOptimalMarginal);
+  const techOptimal = scenarios.find(s => s.p50.isOptimalTechnical)?.p50;
+  const econOptimal = scenarios.find(s => s.p50.isOptimalEconomic)?.p50;
+  const balancedOptimal = scenarios.find(s => s.p50.isOptimalMarginal)?.p50;
+  const robustOptimal = scenarios.find(s => s.isRobustOptimum);
 
   const fmt = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 0 });
   const fmtM = (n: number) => (n / 1_000_000).toFixed(2) + ' M€';
@@ -25,13 +28,18 @@ export const ResultsDashboard: React.FC<Props> = ({ scenarios, selectedRatio, re
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Recommendation panel showing all three optima */}
+      {/* Recommendation panel showing all optima */}
       <div className="bg-slate-900/50 border border-white/5 rounded-xl p-4 space-y-3">
-        <div className="flex items-center gap-2 mb-1">
-          <TrendingUp className="text-emerald-400 shrink-0" size={16} />
-          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Recommended Scenarios</span>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="text-emerald-400 shrink-0" size={16} />
+            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Recommended DC/AC bucket</span>
+          </div>
+          <span className="text-[10px] text-slate-500 italic">
+            The economic layer is intended for directional comparison between DC/AC buckets. It is not a complete project valuation.
+          </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
           {techOptimal && (
             <div className={`p-3 rounded-xl border transition-all ${current.dcAcRatio === techOptimal.dcAcRatio ? 'bg-blue-500/15 border-blue-500/40' : 'bg-slate-900/40 border-white/5'}`}>
               <div className="flex items-center gap-1.5 mb-1">
@@ -65,6 +73,17 @@ export const ResultsDashboard: React.FC<Props> = ({ scenarios, selectedRatio, re
               </div>
             </div>
           )}
+          {robustOptimal && (
+            <div className={`p-3 rounded-xl border transition-all ${combined.dcAcRatio === robustOptimal.dcAcRatio ? 'bg-indigo-500/15 border-indigo-500/40' : 'bg-slate-900/40 border-white/5'}`}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300">Robust</span>
+                <span className="text-[10px] font-bold text-indigo-300">{robustOptimal.dcAcRatio.toFixed(2)}×</span>
+              </div>
+              <div className="text-[9px] text-slate-500 leading-tight">
+                Highest expected NPV while avoiding underperformance in conservative P90 scenarios.
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -77,33 +96,66 @@ export const ResultsDashboard: React.FC<Props> = ({ scenarios, selectedRatio, re
         </div>
       )}
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPI label="DC Capacity" value={`${current.dcMWp} MWp`} />
-        <KPI label="AC Capacity" value={`${current.acMWac} MWac`} />
-        <KPI label="DC/AC Ratio" value={`${current.dcAcRatio}×`}
-          accent={current.isOptimalEconomic ? 'emerald' : undefined} />
-        <KPI label="Clipping" value={fmtPct(current.clippingPercent)}
-          accent={current.clippingPercent > 5 ? 'amber' : undefined} />
+      {/* Grouped KPI Sections */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* System Capacity */}
+        <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
+            <div className="text-slate-300 font-bold text-xs tracking-wider uppercase">System Sizing</div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <KPI label="DC Capacity" value={`${current.dcMWp} MWp`} />
+            <KPI label="AC Capacity" value={`${current.acMWac} MWac`} />
+            <KPI label="DC/AC Ratio" value={`${current.dcAcRatio}×`} />
+          </div>
+        </div>
 
-        <KPI label="Annual Gen. (Yr1)" value={`${fmt(current.annualGeneratedMWh)} MWh`} />
-        <KPI label="Annual Injected" value={`${fmt(current.annualInjectedMWh)} MWh`} />
-        <KPI label="FLH AC" value={`${fmt(current.fullLoadHoursAC)} h`} />
-        <KPI label="Cap. Factor AC" value={fmtPct(current.capacityFactorAC * 100)} />
+        {/* Performance Metrics */}
+        <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
+            <div className="text-slate-300 font-bold text-xs tracking-wider uppercase">Efficiency</div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <KPI label="FLH AC" value={`${fmt(current.fullLoadHoursAC)} h`} />
+            <KPI label="Cap. Factor AC" value={fmtPct(current.capacityFactorAC * 100)} />
+            <KPI label="Clipping" value={fmtPct(current.clippingPercent)} accent={current.clippingPercent > 5 ? 'amber' : undefined} />
+          </div>
+        </div>
 
-        <KPI label="Lifetime Generated" value={`${fmt(current.lifetimeGeneratedMWh)} MWh`} sub="span" />
-        <KPI label="Lifetime Injected" value={`${fmt(current.lifetimeInjectedMWh)} MWh`} sub="span" />
-        {showMarket && (
-          <KPI label="Lifetime Revenue (Market)" value={fmtM(current.lifetimeRevenueMarket)} accent="emerald" />
-        )}
-        {showTariff && (
-          <KPI label="Lifetime Revenue (Tariff)" value={fmtM(current.lifetimeRevenueTariff)} accent="blue" />
-        )}
+        {/* Annual Yield */}
+        <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
+            <div className="text-slate-300 font-bold text-xs tracking-wider uppercase">Annual Yield (Yr 1)</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <KPI label="Total Generated" value={`${fmt(current.annualGeneratedMWh)} MWh`} />
+            <KPI label="Grid Injected" value={`${fmt(current.annualInjectedMWh)} MWh`} />
+          </div>
+        </div>
+
+        {/* Lifetime Economics */}
+        <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
+            <div className="text-slate-300 font-bold text-xs tracking-wider uppercase">Lifetime Return</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {showMarket && <KPI label="Market Revenue" value={fmtM(current.lifetimeRevenueMarket)} />}
+            {showTariff && <KPI label="Tariff Revenue" value={fmtM(current.lifetimeRevenueTariff)} />}
+            <KPI label="Total Energy" value={`${fmt(current.lifetimeInjectedMWh)} MWh`} />
+          </div>
+        </div>
+
+        {/* Storage Impact (only if active) */}
         {current.bessRecoveredMWh > 0 && (
-          <KPI label="BESS Recovered" value={`${fmt(current.bessRecoveredMWh)} MWh`} accent="cyan" />
-        )}
-        {current.bessRevenueMarket > 0 && showMarket && (
-          <KPI label="BESS Revenue (incl.)" value={fmtM(current.bessRevenueMarket)} accent="cyan" />
+          <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 md:col-span-2 shadow-sm">
+            <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
+              <div className="text-slate-300 font-bold text-xs tracking-wider uppercase">Storage Impact (BESS)</div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <KPI label="Recovered Energy" value={`${fmt(current.bessRecoveredMWh)} MWh`} />
+              {showMarket && <KPI label="Additional Revenue" value={fmtM(current.bessRevenueMarket)} />}
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -113,13 +165,10 @@ export const ResultsDashboard: React.FC<Props> = ({ scenarios, selectedRatio, re
 const KPI: React.FC<{
   label: string; value: string; accent?: 'emerald' | 'blue' | 'amber' | 'cyan'; sub?: string;
 }> = ({ label, value, accent }) => (
-  <div className="bg-slate-900/50 border border-white/5 rounded-xl p-3">
+  <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3">
     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</div>
     <div className={`text-sm font-bold ${
-      accent === 'emerald' ? 'text-emerald-400' :
-      accent === 'blue' ? 'text-blue-400' :
-      accent === 'amber' ? 'text-amber-400' :
-      accent === 'cyan' ? 'text-cyan-400' : 'text-white'
+      accent === 'amber' ? 'text-amber-400' : 'text-slate-100'
     }`}>
       {value}
     </div>

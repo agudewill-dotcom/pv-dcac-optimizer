@@ -1,53 +1,77 @@
 import { useState, useMemo } from 'react';
-import { Activity, Zap, DollarSign, BarChart3, BookOpen, Download } from 'lucide-react';
+import { Activity, Zap, DollarSign, BarChart3, BookOpen, Download, Target } from 'lucide-react';
 import { ProjectSetup } from './components/ProjectSetup';
 import { PowerConfigPanel } from './components/PowerConfig';
 import { OrientationSelect } from './components/OrientationSelect';
-import { PriceConfigPanel } from './components/PriceConfig';
-import { CapexPanel } from './components/CapexPanel';
-import { BessPanel } from './components/BessPanel';
-import { ResultsDashboard } from './components/ResultsDashboard';
 import { OptimizationTable } from './components/OptimizationTable';
-import { ProfileChart, ClippingChart, RevenueChart, GenerationChart } from './components/Charts';
 import { Methodology } from './components/Methodology';
-import { GridConnectionPanel } from './components/GridConnectionPanel';
+import { ExecutiveSummary } from './components/ExecutiveSummary';
+import { ProductionClipping } from './components/ProductionClipping';
+import { RevenueLogic } from './components/RevenueLogic';
+import { EconomicsScreening } from './components/EconomicsScreening';
+import { Recommendation } from './components/Recommendation';
+import { BessPanel } from './components/BessPanel';
 import { runOptimization } from './engine/optimization';
-import { generateSamplePriceProfile } from './engine/priceData';
+import { getDefaultPriceProfile } from './engine/priceData';
 import { exportResultsPDF } from './engine/pdfExport';
+import { fetchPVGISProfile } from './engine/generationProfiles';
 import type {
-  ProjectConfig, PowerConfig, PriceConfig, CapexConfig, BessConfig, Orientation,
+  ProjectConfig, PowerConfig, PriceConfig, CapexConfig, Orientation, GridConfig, ProductionCase, BessConfig
 } from './types';
 import {
-  DEFAULT_PROJECT, DEFAULT_POWER, DEFAULT_PRICE, DEFAULT_CAPEX, DEFAULT_BESS,
+  DEFAULT_PROJECT, DEFAULT_POWER, DEFAULT_PRICE, DEFAULT_CAPEX, DEFAULT_BESS, DEFAULT_GRID_CONFIG,
 } from './types';
 
 // ─── Tab definitions ────────────────────────────────────────────────────────
-type TabId = 'design' | 'revenue' | 'results' | 'methodology';
+type TabId = 'summary' | 'setup' | 'technical' | 'production' | 'revenue' | 'economics' | 'scenarios' | 'recommendation' | 'methodology';
 
-const TABS: { id: TabId; label: string; icon: typeof Zap }[] = [
-  { id: 'design', label: 'System Design', icon: Zap },
-  { id: 'revenue', label: 'Revenue & Storage', icon: DollarSign },
-  { id: 'results', label: 'Results', icon: BarChart3 },
-  { id: 'methodology', label: 'Methodology', icon: BookOpen },
+const TABS: { id: TabId; label: string; icon: any; short?: string; highlighted?: boolean }[] = [
+  { id: 'setup', label: '1. Project Setup', short: 'Setup', icon: BookOpen },
+  { id: 'technical', label: '2. Technical Config', short: 'Technical', icon: Zap },
+  { id: 'production', label: '3. Production & Clipping', short: 'Production', icon: BarChart3 },
+  { id: 'revenue', label: '4. Revenue Logic', short: 'Revenue', icon: DollarSign },
+  { id: 'economics', label: '5. Economics / CAPEX', short: 'Economics', icon: Activity },
+  { id: 'scenarios', label: '6. Scenario Comparison', short: 'Scenarios', icon: BarChart3 },
+  { id: 'recommendation', label: '7. Recommendation', short: 'Recommend', icon: Activity },
+  { id: 'methodology', label: '8. Methodology', short: 'Methodology', icon: BookOpen },
+  { id: 'summary', label: '9. Executive Summary', short: 'Summary', icon: Target, highlighted: true },
 ];
 
-// ─── Initialize price data ──────────────────────────────────────────────────
+
 const INITIAL_PRICE: PriceConfig = {
   ...DEFAULT_PRICE,
-  priceProfile: generateSamplePriceProfile(),
+  priceProfile: getDefaultPriceProfile(),
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState<TabId>('design');
+  const [activeTab, setActiveTab] = useState<TabId>('setup');
   const [project, setProject] = useState<ProjectConfig>(DEFAULT_PROJECT);
   const [power, setPower] = useState<PowerConfig>(DEFAULT_POWER);
   const [orientation, setOrientation] = useState<Orientation>('south');
   const [price, setPrice] = useState<PriceConfig>(INITIAL_PRICE);
   const [capex, setCapex] = useState<CapexConfig>(DEFAULT_CAPEX);
   const [bess, setBess] = useState<BessConfig>(DEFAULT_BESS);
+  const [grid, setGrid] = useState<GridConfig>(DEFAULT_GRID_CONFIG);
   const [selectedRatio, setSelectedRatio] = useState<number>(DEFAULT_POWER.dcAcRatio);
+  const [productionCase, setProductionCase] = useState<ProductionCase>('p50');
 
-  // ─── Run optimization ──────────────────────────────────────────────────────
+  const [isFetchingPVGIS, setIsFetchingPVGIS] = useState(false);
+  const [pvgisError, setPvgisError] = useState('');
+
+  const handleFetchPVGIS = async () => {
+    setIsFetchingPVGIS(true);
+    setPvgisError('');
+    try {
+      const profile = await fetchPVGISProfile(project.lat, project.lon, orientation);
+      setProject(prev => ({ ...prev, pvgisProfile: profile }));
+    } catch (err: any) {
+      setPvgisError(err.message || 'Failed to fetch from PVGIS');
+    } finally {
+      setIsFetchingPVGIS(false);
+    }
+  };
+
+  // ─── Optimization Runner ──────────────────────────────────────────────────────
   const scenarios = useMemo(() => {
     try {
       if (power.dcCapacityMWp <= 0 || power.acCapacityMWac <= 0) return [];
@@ -67,8 +91,6 @@ function App() {
   if (project.degradationRate > 0.01) warnings.push('Degradation rate above 1%/a is unusually high.');
 
   const selected = scenarios.find(s => s.dcAcRatio === selectedRatio) || scenarios[0] || null;
-  const showMarket = price.revenueMode !== 'tariff';
-  const showTariff = price.revenueMode !== 'market';
 
   return (
     <div className="min-h-screen p-4 md:p-8 space-y-6 max-w-[1400px] mx-auto bg-slate-950">
@@ -104,15 +126,15 @@ function App() {
               <div className="w-px h-8 bg-slate-700" />
               <div className="text-right">
                 <div className="text-[10px] font-bold text-slate-500 uppercase">Clipping</div>
-                <div className={`text-sm font-bold leading-none ${selected.clippingPercent > 5 ? 'text-amber-400' : 'text-white'}`}>
-                  {selected.clippingPercent.toFixed(2)}%
+                <div className={`text-sm font-bold leading-none ${selected.p50.clippingPercent > 5 ? 'text-amber-400' : 'text-white'}`}>
+                  {selected.p50.clippingPercent.toFixed(2)}%
                 </div>
               </div>
               <div className="w-px h-8 bg-slate-700 hidden md:block" />
               <div className="text-right hidden md:block">
                 <div className="text-[10px] font-bold text-slate-500 uppercase">FLH AC</div>
                 <div className="text-sm font-bold text-white leading-none">
-                  {selected.fullLoadHoursAC.toLocaleString('de-DE', { maximumFractionDigits: 0 })} h
+                  {selected.p50.fullLoadHoursAC.toLocaleString('de-DE', { maximumFractionDigits: 0 })} h
                 </div>
               </div>
             </>
@@ -122,7 +144,7 @@ function App() {
               <div className="w-px h-8 bg-slate-700" />
               <button
                 onClick={() => exportResultsPDF({
-                  project, power, orientation, price, bess, scenarios, selectedRatio,
+                  project, power, orientation, price, bess, grid, scenarios, selectedRatio,
                 })}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 transition-all text-xs font-bold"
                 title="Download results as PDF"
@@ -145,94 +167,156 @@ function App() {
       )}
 
       {/* Tab Navigation */}
-      <nav className="flex gap-1 bg-slate-900/40 p-1 rounded-xl border border-white/5">
-        {TABS.map(tab => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${
-                isActive
-                  ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50 border border-transparent'
-              }`}
-            >
-              <Icon size={16} />
-              <span className="hidden sm:inline">{tab.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-900/40 p-1 rounded-xl border border-white/5">
+        <nav className="flex gap-1 w-full md:w-auto">
+          {TABS.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${
+                  isActive
+                    ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+                    : tab.highlighted
+                      ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50 border border-transparent'
+                }`}
+              >
+                <Icon size={14} />
+                <span className="hidden sm:inline whitespace-nowrap">{tab.short || tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
 
       {/* ─── Tab Content ──────────────────────────────────────────────────────── */}
       <div className="animate-fade-in" key={activeTab}>
-        {/* System Design Tab */}
-        {activeTab === 'design' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <ProjectSetup config={project} onChange={setProject} />
-              <PowerConfigPanel config={power} onChange={setPower} />
-            </div>
-            <OrientationSelect orientation={orientation} onChange={setOrientation} />
+        {scenarios.length === 0 && activeTab !== 'setup' && activeTab !== 'technical' && activeTab !== 'methodology' ? (
+          <div className="glass-card p-12 text-center space-y-4 mt-8">
+            <Activity className="mx-auto text-slate-600" size={40} />
+            <div className="text-slate-400 font-bold text-lg">Configure your project</div>
+            <p className="text-slate-500 text-sm">
+              Enter valid DC and AC capacities in the Technical Config tab to generate results.
+            </p>
           </div>
-        )}
+        ) : (
+          <>
+            {activeTab === 'summary' && (
+              <ExecutiveSummary scenarios={scenarios} selectedRatio={selectedRatio} />
+            )}
 
-        {/* Revenue & Storage Tab */}
-        {activeTab === 'revenue' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <PriceConfigPanel config={price} onChange={setPrice} />
-              <BessPanel config={bess} onChange={setBess} />
-            </div>
-            <CapexPanel config={capex} onChange={setCapex} />
-          </div>
-        )}
-
-        {/* Results Tab */}
-        {activeTab === 'results' && (
-          <div className="space-y-6">
-            {scenarios.length === 0 ? (
-              <div className="glass-card p-12 text-center space-y-4">
-                <Activity className="mx-auto text-slate-600" size={40} />
-                <div className="text-slate-400 font-bold text-lg">Configure your project</div>
-                <p className="text-slate-500 text-sm">
-                  Enter valid DC and AC capacities in the System Design tab to generate results.
-                </p>
+            {activeTab === 'setup' && (
+              <div className="space-y-6 mt-8">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <BookOpen className="text-emerald-400" size={28} />
+                    <h2 className="text-2xl font-black text-white tracking-tight">Project Setup</h2>
+                  </div>
+                  <div className="flex items-center gap-3 bg-slate-900/50 p-2 rounded-xl border border-white/5">
+                    <span className="text-xs font-bold text-slate-400 uppercase ml-2">Production Case:</span>
+                    <select
+                      value={productionCase}
+                      onChange={(e) => setProductionCase(e.target.value as ProductionCase)}
+                      className="bg-slate-800 border border-slate-700 text-white text-sm font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="p50">P50 Expected</option>
+                      <option value="p90">P90 Conservative</option>
+                      <option value="compare">Compare P50 vs P90</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <ProjectSetup config={project} onChange={setProject} />
+                  <div className="space-y-6">
+                    <OrientationSelect orientation={orientation} onChange={setOrientation} />
+                    <div className="glass-card p-4 border-blue-500/20 bg-blue-500/5 flex flex-col justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-blue-400">PVGIS 5.2 Integration</h3>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {project.pvgisProfile 
+                            ? '✓ Custom 8760h generation profile loaded for these coordinates and orientation.'
+                            : 'Fetch real meteorological data based on your coordinates and orientation.'}
+                        </p>
+                        {pvgisError && <p className="text-xs text-red-400 mt-1">Error: {pvgisError}</p>}
+                      </div>
+                      <button
+                        onClick={handleFetchPVGIS}
+                        disabled={isFetchingPVGIS}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50 w-full"
+                      >
+                        {isFetchingPVGIS ? 'Fetching...' : project.pvgisProfile ? 'Refetch Data' : 'Fetch PVGIS Data'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <>
-                <ResultsDashboard
-                  scenarios={scenarios}
-                  selectedRatio={selectedRatio}
-                  revenueMode={price.revenueMode}
-                />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <ProfileChart orientation={orientation} />
-                  <GenerationChart scenario={selected} />
-                  <ClippingChart scenarios={scenarios} />
-                  <RevenueChart scenarios={scenarios} showMarket={showMarket} showTariff={showTariff} />
+            )}
+
+            {activeTab === 'technical' && (
+              <div className="mt-8 space-y-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <div className="space-y-6 mt-0">
+                  <PowerConfigPanel config={power} onChange={setPower} />
+                </div>
+                <div className="space-y-6 mt-0">
+                  <BessPanel config={bess} onChange={setBess} />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'production' && (
+              <ProductionClipping 
+                scenarios={scenarios} 
+                selectedRatio={selectedRatio} 
+                productionCase={productionCase} 
+                orientation={orientation} 
+                projectConfig={project}
+              />
+            )}
+
+            {activeTab === 'revenue' && (
+              <RevenueLogic priceConfig={price} onChange={setPrice} />
+            )}
+
+            {activeTab === 'economics' && (
+              <EconomicsScreening 
+                capexConfig={capex} 
+                setCapex={setCapex} 
+                gridConfig={grid} 
+                setGrid={setGrid} 
+                scenario={selected} 
+                projectConfig={project}
+              />
+            )}
+
+            {activeTab === 'scenarios' && (
+              <div className="space-y-6 mt-8">
+                <div className="flex items-center gap-3 mb-2">
+                  <BarChart3 className="text-emerald-400" size={28} />
+                  <h2 className="text-2xl font-black text-white tracking-tight">Scenario Comparison</h2>
                 </div>
                 <OptimizationTable
                   scenarios={scenarios}
                   selectedRatio={selectedRatio}
                   onSelectRatio={setSelectedRatio}
                   revenueMode={price.revenueMode}
+                  productionCase={productionCase}
                 />
-                <GridConnectionPanel
-                  acCapacityMWac={power.acCapacityMWac}
-                  dcCapacityMWp={power.dcCapacityMWp}
-                  scenario={selected}
-                />
-              </>
+              </div>
             )}
-          </div>
-        )}
 
-        {/* Methodology Tab */}
-        {activeTab === 'methodology' && (
-          <Methodology />
+            {activeTab === 'recommendation' && (
+              <Recommendation scenarios={scenarios} />
+            )}
+
+            {activeTab === 'methodology' && (
+              <div className="mt-8">
+                <Methodology />
+              </div>
+            )}
+          </>
         )}
       </div>
 

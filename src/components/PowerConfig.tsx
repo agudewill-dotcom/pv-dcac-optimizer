@@ -59,6 +59,12 @@ export const PowerConfigPanel: React.FC<Props> = ({ config, onChange }) => {
         ))}
       </div>
 
+      <div className="text-xs text-slate-400 bg-slate-900/50 p-3 rounded-lg border border-white/5">
+        {config.mode === 'ac_fixed' && <p><strong>AC Fixed Mode:</strong> AC capacity remains constant and DC capacity is varied across the specified bucket range.</p>}
+        {config.mode === 'dc_fixed' && <p><strong>DC Fixed Mode:</strong> DC capacity remains constant and AC capacity is varied across the specified bucket range.</p>}
+        {config.mode === 'free' && <p><strong>Free Mode:</strong> Both DC and AC capacities are manually defined.</p>}
+      </div>
+
       {/* Capacity inputs */}
       <div className="bg-slate-900/40 p-4 rounded-xl border border-white/5 space-y-3">
         <div className="flex items-center justify-between border-b border-white/5 pb-2">
@@ -103,9 +109,12 @@ export const PowerConfigPanel: React.FC<Props> = ({ config, onChange }) => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-2">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">DC/AC Ratio</span>
+            {config.mode === 'free' && (
+              <span className="text-[8px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded-full font-bold">DERIVED</span>
+            )}
             {ratioWarning && (
               <span className="text-[9px] text-amber-400" title="Ratio outside typical 1.0–1.6 range">⚠</span>
             )}
@@ -120,9 +129,13 @@ export const PowerConfigPanel: React.FC<Props> = ({ config, onChange }) => {
                 ratioWarning ? 'text-amber-400' : 'text-emerald-400'
               }`}
               step="0.05"
+              readOnly={config.mode === 'free'}
             />
             <span className="text-slate-500 text-xs font-bold">×</span>
           </div>
+        </div>
+        <div className="text-[10px] text-slate-500 text-right italic mt-2">
+          Formula: DC/AC ratio = DC Capacity MWp / AC Capacity MWac
         </div>
       </div>
 

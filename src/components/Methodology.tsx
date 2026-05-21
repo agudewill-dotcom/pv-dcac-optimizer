@@ -3,177 +3,122 @@ import { BookOpen } from 'lucide-react';
 
 export const Methodology: React.FC = () => {
   return (
-    <div className="glass-card animate-fade-in">
+    <div className="glass-card animate-fade-in mt-8">
       <div className="flex items-center gap-2 p-4 border-b border-white/5">
         <BookOpen className="text-slate-400" size={18} />
         <span className="text-sm font-bold text-slate-300 uppercase tracking-wider">
-          Methodology & Calculation Logic
+          Methodology & Assumptions
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 px-5 pb-5 text-xs text-slate-400 pt-4 leading-relaxed">
-          <Section title="DC Capacity (MWp)">
-            Installed peak power of the PV module array under Standard Test Conditions (STC, 1000 W/m², 25°C).
-            This determines the maximum possible DC-side generation.
-          </Section>
-
-          <Section title="AC Capacity (MWac)">
-            Maximum power export capacity, limited by the inverter and grid connection infrastructure.
-            All instantaneous DC generation exceeding this limit is clipped (curtailed).
-          </Section>
-
-          <Section title="DC/AC Ratio">
-            DC Capacity / AC Capacity. A ratio of 1.25 means 25% more DC capacity than AC export capacity.
-            Higher ratios increase AC infrastructure utilization but cause clipping during peak hours.
-          </Section>
-
-          <Section title="Clipping">
-            When instantaneous DC generation exceeds AC capacity, the excess energy is lost.
-            Clipped Energy = max(DC Power − AC Capacity, 0) at each timestep.
-            Clipping typically occurs during midday in summer for south-facing systems.
-          </Section>
-
-          <Section title="Generation Profiles">
-            Synthetic hourly profiles (8,760 hours/year) based on solar geometry at 52°N (Central Germany).
-            Accounts for seasonal day length, solar elevation, atmospheric clearness indices, and array tilt/azimuth.
-            East-West layouts produce flatter curves with less clipping risk.
-          </Section>
-
-          <Section title="Degradation">
-            Annual reduction in module performance. Applied per year:
-            Generation(year n) = Generation(year 1) × (1 − degradation rate)^(n−1).
-            As modules degrade, clipping may decrease in later years.
-          </Section>
-
-          <Section title="Market Price Revenue">
-            Revenue = Σ(injected_energy[t] × price[t]) for each hourly timestep.
-            Captures the duck-curve effect: solar generation peaks when prices are often suppressed.
-            Market-value weighted price = Total Revenue / Total Injected Energy.
-          </Section>
-
-          <Section title="Fixed Tariff Revenue">
-            Revenue = Total Injected Energy × Fixed Tariff (EUR/MWh).
-            Each MWh has equal value regardless of timing.
-          </Section>
-
-          <Section title="Optimal DC/AC Ratio">
-            The optimal ratio balances additional energy capture against clipping losses.
-            <br />• <strong>Technical optimum:</strong> Lowest clipping percentage (ratio = 1.00).
-            <br />• <strong>Economic optimum:</strong> Highest total lifetime revenue.
-            <br />• <strong>Balanced optimum:</strong> Highest incremental revenue per additional MWp DC — the best trade-off between additional energy capture and diminishing returns from clipping.
-            <br /><br />
-            When marginal DC capacity creates mostly clipped energy, further DC oversizing is uneconomical.
-          </Section>
-
-          <Section title="Battery Storage (BESS)">
-            BESS captures clipped energy (DC generation exceeding AC capacity) and stores it for dispatch
-            during higher-price hours with available AC headroom.
-            <br />• <strong>Charge:</strong> From hourly clipped energy, limited by BESS power rating and remaining capacity.
-            <br />• <strong>Dispatch:</strong> During highest-price hours of the same day with AC export headroom.
-            <br />• <strong>Losses:</strong> Round-trip efficiency applied (typically 85–90%).
-            <br />• <strong>Degradation:</strong> BESS utilization scales with module degradation (less clipping → less charging in later years).
-          </Section>
-
-          {/* Data Sources section - full width */}
-          <div className="md:col-span-2 border-t border-white/10 pt-4 mt-2">
-            <h4 className="text-xs font-bold text-emerald-300 mb-3 uppercase tracking-wider">Data Sources & Assumptions</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {DATA_SOURCES.map(ds => (
-                <SourceRow key={ds.parameter} {...ds} />
-              ))}
-            </div>
+      <div className="px-5 pt-4 text-sm text-slate-300 leading-relaxed mb-6">
+        <h3 className="text-sm font-bold text-white mb-2">Tool Scope & Limitations</h3>
+        <p className="mb-4">
+          This tool is a pre-feasibility and scenario comparison tool for PV DC/AC configurations and grid connection strategy.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2">It evaluates:</h4>
+            <ul className="list-disc list-inside space-y-1 text-slate-400 text-xs">
+              <li>DC capacity, AC capacity, and DC/AC ratio</li>
+              <li>Clipping losses</li>
+              <li>Orientation profiles</li>
+              <li>P50 / P90 production cases</li>
+              <li>Module degradation</li>
+              <li>Market price or feed-in tariff revenue</li>
+              <li>Capture price and cannibalization effects</li>
+              <li>Simplified CAPEX assumptions</li>
+              <li>Marginal revenue and marginal CAPEX</li>
+              <li>Recommended DC/AC bucket</li>
+            </ul>
           </div>
+          <div>
+            <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">It does not replace:</h4>
+            <ul className="list-disc list-inside space-y-1 text-slate-400 text-xs">
+              <li>Bankable yield assessment</li>
+              <li>PVSyst simulation</li>
+              <li>Detailed grid connection study</li>
+              <li>EPC cost estimate</li>
+              <li>Full project financial model</li>
+              <li>Tax and financing model</li>
+              <li>Final investment decision</li>
+            </ul>
+          </div>
+        </div>
+      </div>
 
-          <div className="md:col-span-2 bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 mt-2">
-            <p className="text-amber-400/80 text-[10px] font-bold uppercase tracking-wider mb-1">Disclaimer</p>
-            <p className="text-amber-400/60 text-[10px]">
-              This tool provides a comparative pre-feasibility calculation. It does not replace a bankable yield
-              assessment, detailed PVSyst simulation, grid connection study, or final investment model.
-              Generation profiles are synthetic and illustrative. Market price data is from SMARD.de (2024).
-              All data sources should be verified against project-specific conditions before investment decisions.
+      <div className="flex items-center gap-2 p-4 border-b border-white/5 border-t mt-4">
+        <span className="text-sm font-bold text-slate-300 uppercase tracking-wider">
+          Formulas & Logic
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 px-5 pb-5 text-xs text-slate-400 pt-4 leading-relaxed">
+          <Section title="P50 / P90 Methodology">
+            The optimization engine runs a dual-pass simulation for every DC/AC ratio using both P50 (expected) and P90 (conservative) production assumptions.
+            A 'Robust' recommendation is identified by verifying that the selected optimum does not suffer severe performance drops in the P90 case.
+          </Section>
+
+          <Section title="Clipping Formula">
+            <span className="font-mono text-[10px] bg-slate-800 px-1 py-0.5 rounded text-amber-300">Clipped Power = max(Generated Power − AC Capacity, 0)</span><br/>
+            When instantaneous DC generation exceeds the AC export limit, the excess energy is curtailed. This typically occurs during midday in summer.
+          </Section>
+
+          <Section title="Module Degradation">
+            <span className="font-mono text-[10px] bg-slate-800 px-1 py-0.5 rounded text-blue-300">Gen(year n) = Gen(year 1) × (1 − degradation rate)^(n−1)</span><br/>
+            As modules degrade over the project lifetime, clipping naturally decreases. The economic screening accounts for this lifetime degradation.
+          </Section>
+
+          <Section title="Revenue Formula">
+            <span className="font-mono text-[10px] bg-slate-800 px-1 py-0.5 rounded text-emerald-300">Revenue = Σ(Injected Energy[t] × Price[t])</span><br/>
+            Only injected energy after clipping is monetized. For market pricing, this captures the cannibalization effect where prices drop during peak solar generation.
+          </Section>
+
+          <Section title="Capture Price & Cannibalization">
+            <span className="font-mono text-[10px] bg-slate-800 px-1 py-0.5 rounded text-indigo-300">Capture Price = Total Market Revenue / Total Injected Energy</span><br/>
+            The capture price is the volume-weighted average price. Higher DC/AC ratios push more volume into off-peak hours, which can slightly stabilize capture prices.
+          </Section>
+
+          <Section title="CAPEX Screening Formula">
+            <span className="font-mono text-[10px] bg-slate-800 px-1 py-0.5 rounded text-purple-300">Marginal CAPEX = Δ DC_Capacity × CAPEX_Per_MWp_DC</span><br/>
+            The economic screening evaluates the capital efficiency of adding more DC modules to a fixed AC grid connection. It calculates whether the marginal revenue pays back the marginal CAPEX.
+          </Section>
+      </div>
+
+      <div className="md:col-span-2 border-t border-white/10 pt-4 mt-2 px-5 pb-5">
+        <h4 className="text-xs font-bold text-emerald-300 mb-3 uppercase tracking-wider">Data Source Explanations</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-slate-900/50 p-3 rounded-xl border border-white/5">
+            <h5 className="font-bold text-slate-300 text-xs mb-1">Price Data Methodology</h5>
+            <p className="text-xs text-slate-400">
+              The built-in sample price profile uses 2024 Day-Ahead auction prices for the DE-LU bidding zone from SMARD.de.
+              It is illustrative and contains negative prices. Users must upload custom CSV price curves for accurate screening.
+            </p>
+          </div>
+          <div className="bg-slate-900/50 p-3 rounded-xl border border-white/5">
+            <h5 className="font-bold text-slate-300 text-xs mb-1">Generation Profiles</h5>
+            <p className="text-xs text-slate-400">
+              Default profiles are synthetic standard curves based on solar geometry. Users can fetch live data from PVGIS 5.2 or upload custom 8760h yield profiles (e.g., from PVSyst) to ensure bankability.
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="px-5 pb-5 mt-2">
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+          <p className="text-amber-400 font-bold uppercase tracking-wider text-xs mb-1">Disclaimer</p>
+          <p className="text-amber-300/80 text-xs">
+            This tool provides a comparative pre-feasibility and scenario screening calculation. It does not replace a bankable yield assessment, PVSyst simulation, detailed grid connection study, EPC cost estimate, full project financial model or final investment decision.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div>
-    <h4 className="text-xs font-bold text-slate-300 mb-1">{title}</h4>
+  <div className="bg-slate-900/40 p-3 rounded-lg border border-white/5">
+    <h4 className="text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">{title}</h4>
     <p>{children}</p>
-  </div>
-);
-
-const QUALITY_COLORS: Record<string, string> = {
-  illustrative: 'bg-amber-500/20 text-amber-300',
-  representative: 'bg-blue-500/20 text-blue-300',
-  standard: 'bg-emerald-500/20 text-emerald-300',
-  estimate: 'bg-purple-500/20 text-purple-300',
-};
-
-const DATA_SOURCES = [
-  {
-    parameter: 'Generation Profiles',
-    source: 'Synthetic (Solar Geometry)',
-    detail: 'Cooper equation for solar declination, hour angle, elevation at 52°N. Clear-sky Hottel airmass model. NOT from TMY or satellite data.',
-    quality: 'illustrative',
-  },
-  {
-    parameter: 'Monthly Clearness Index',
-    source: 'German TMY literature',
-    detail: 'Monthly Kt values: Jan 0.30, Feb 0.35, Mar 0.42, Apr 0.48, May 0.52, Jun 0.54, Jul 0.53, Aug 0.50, Sep 0.45, Oct 0.38, Nov 0.30, Dec 0.27.',
-    quality: 'representative',
-  },
-  {
-    parameter: 'Annual Yield Targets',
-    source: 'Industry benchmarks',
-    detail: 'South: 1050 kWh/kWp, EW: 970, SE/SW: 1020. Used to calibrate profile scaling.',
-    quality: 'representative',
-  },
-  {
-    parameter: 'Market Price Shape',
-    source: 'SMARD.de / Energy-Charts 2024',
-    detail: 'DE-LU bidding zone day-ahead auction prices, hourly, 2024-01-01 to 2024-12-31 (8760h). Source: Bundesnetzagentur | SMARD.de via Energy-Charts API. License: CC BY 4.0. Avg: 78.56 EUR/MWh, 457 negative-price hours.',
-    quality: 'standard',
-  },
-  {
-    parameter: 'Module Degradation',
-    source: 'IEC 61215 / industry',
-    detail: 'Default 0.4%/a linear. Tier-1 modules typically 0.3–0.5%/a.',
-    quality: 'standard',
-  },
-  {
-    parameter: 'Availability',
-    source: 'Industry assumption',
-    detail: 'Default 98%. Includes inverter downtime, grid curtailment, maintenance.',
-    quality: 'standard',
-  },
-  {
-    parameter: 'BESS Round-Trip Eff.',
-    source: 'Lithium-ion benchmark',
-    detail: 'Default 88%. Grid-scale Li-ion systems typically 85–92%.',
-    quality: 'standard',
-  },
-  {
-    parameter: 'BESS CAPEX',
-    source: 'BNEF / industry 2024',
-    detail: 'Default: 250 k€/MWh storage + 150 k€/MW power electronics. Varies significantly by technology and project.',
-    quality: 'estimate',
-  },
-];
-
-const SourceRow: React.FC<{
-  parameter: string; source: string; detail: string; quality: string;
-}> = ({ parameter, source, detail, quality }) => (
-  <div className="bg-slate-900/40 border border-white/5 rounded-lg p-2.5">
-    <div className="flex items-center justify-between mb-1">
-      <span className="text-[10px] font-bold text-slate-300">{parameter}</span>
-      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${QUALITY_COLORS[quality] || QUALITY_COLORS.estimate}`}>
-        {quality}
-      </span>
-    </div>
-    <div className="text-[10px] text-emerald-400/80 font-bold mb-0.5">{source}</div>
-    <div className="text-[9px] text-slate-500 leading-tight">{detail}</div>
   </div>
 );

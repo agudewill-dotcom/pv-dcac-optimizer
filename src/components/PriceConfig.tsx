@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, Upload } from 'lucide-react';
+import { DollarSign, Upload, TrendingUp } from 'lucide-react';
 import type { PriceConfig, RevenueMode } from '../types';
 import { parsePriceCSV, getAveragePrice } from '../engine/priceData';
 
@@ -31,10 +31,10 @@ export const PriceConfigPanel: React.FC<Props> = ({ config, onChange }) => {
     : 0;
 
   return (
-    <div className="glass-card p-5 space-y-4 animate-fade-in">
+    <div className="glass-card p-5 space-y-4 animate-fade-in h-full">
       <div className="flex items-center gap-2 border-b border-slate-700/30 pb-4">
         <DollarSign className="text-emerald-400" size={20} />
-        <h2 className="text-lg font-bold text-white">Revenue Assumptions</h2>
+        <h2 className="text-lg font-bold text-white">Revenue Config</h2>
       </div>
 
       {/* Mode selector */}
@@ -57,20 +57,39 @@ export const PriceConfigPanel: React.FC<Props> = ({ config, onChange }) => {
       <div className="bg-slate-900/40 p-3 rounded-xl border border-white/5 space-y-3">
         {/* Fixed tariff */}
         {(config.revenueMode === 'tariff' || config.revenueMode === 'hybrid') && (
-          <div className="flex items-center justify-between border-b border-white/5 pb-2">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fixed Tariff</span>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={config.fixedTariffEurMWh || ''}
-                onChange={e => onChange({ ...config, fixedTariffEurMWh: parseFloat(e.target.value) || 0 })}
-                onFocus={e => e.target.select()}
-                className="bg-transparent text-right text-white w-16 font-mono outline-none focus:text-emerald-400 transition-colors"
-                step="1"
-              />
-              <span className="text-slate-600 text-[10px] font-bold">EUR/MWh</span>
+          <>
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fixed Tariff</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  value={config.fixedTariffEurMWh || ''}
+                  onChange={e => onChange({ ...config, fixedTariffEurMWh: parseFloat(e.target.value) || 0 })}
+                  onFocus={e => e.target.select()}
+                  className="bg-transparent text-right text-white w-16 font-mono outline-none focus:text-emerald-400 transition-colors"
+                  step="1"
+                />
+                <span className="text-slate-600 text-[10px] font-bold">EUR/MWh</span>
+              </div>
             </div>
-          </div>
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                <TrendingUp size={12} />
+                Tariff Escalation
+              </span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  value={(config.tariffEscalation * 100).toFixed(1)}
+                  onChange={e => onChange({ ...config, tariffEscalation: (parseFloat(e.target.value) || 0) / 100 })}
+                  onFocus={e => e.target.select()}
+                  className="bg-transparent text-right text-white w-12 font-mono outline-none focus:text-emerald-400 transition-colors"
+                  step="0.1"
+                />
+                <span className="text-slate-600 text-[10px] font-bold">% p.a.</span>
+              </div>
+            </div>
+          </>
         )}
 
         {/* Market price info */}
@@ -94,7 +113,25 @@ export const PriceConfigPanel: React.FC<Props> = ({ config, onChange }) => {
               </div>
             )}
 
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-400 hover:text-white transition-colors mt-1">
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                <TrendingUp size={12} />
+                Price Escalation
+              </span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  value={(config.priceEscalation * 100).toFixed(1)}
+                  onChange={e => onChange({ ...config, priceEscalation: (parseFloat(e.target.value) || 0) / 100 })}
+                  onFocus={e => e.target.select()}
+                  className="bg-transparent text-right text-white w-12 font-mono outline-none focus:text-emerald-400 transition-colors"
+                  step="0.1"
+                />
+                <span className="text-slate-600 text-[10px] font-bold">% p.a.</span>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-400 hover:text-white transition-colors mt-2">
               <Upload size={14} />
               <span>Upload price CSV</span>
               <input type="file" className="hidden" accept=".csv" onChange={handleCSVUpload} />
@@ -113,12 +150,6 @@ export const PriceConfigPanel: React.FC<Props> = ({ config, onChange }) => {
             Upload a custom CSV for different years or regions.
           </p>
         </div>
-      )}
-      {config.priceSource === 'sample' && config.revenueMode !== 'tariff' && (
-        <p className="text-[10px] text-amber-400/70 italic leading-tight">
-          Using representative German day-ahead price shape. Upload actual price data for project-specific analysis.
-          Recommended sources: <strong>SMARD.de</strong> or <strong>Energy-Charts.info</strong> (hourly CSV export).
-        </p>
       )}
     </div>
   );

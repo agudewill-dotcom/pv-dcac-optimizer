@@ -4,7 +4,7 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement,
   PointElement, LineElement, Title, Tooltip, Legend, Filler,
 } from 'chart.js';
-import type { ScenarioResult, Orientation } from '../types';
+import type { CombinedScenarioResult, Orientation, ProductionCase } from '../types';
 import { getDailyPreviewProfile } from '../engine/generationProfiles';
 
 ChartJS.register(
@@ -24,7 +24,6 @@ const CHART_OPTS = {
   },
 };
 
-// ─── Daily Profile by Orientation ────────────────────────────────────────────
 export const ProfileChart: React.FC<{ orientation: Orientation }> = ({ orientation }) => {
   const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
   const profiles = useMemo(() => ({
@@ -37,101 +36,67 @@ export const ProfileChart: React.FC<{ orientation: Orientation }> = ({ orientati
   const data = {
     labels: hours,
     datasets: [
-      {
-        label: 'South', data: profiles.south,
-        borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)',
-        borderWidth: orientation === 'south' ? 2.5 : 1, fill: orientation === 'south',
-        tension: 0.4, pointRadius: 0,
-      },
-      {
-        label: 'East-West', data: profiles.east_west,
-        borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)',
-        borderWidth: orientation === 'east_west' ? 2.5 : 1, fill: orientation === 'east_west',
-        tension: 0.4, pointRadius: 0,
-      },
-      {
-        label: 'South-East', data: profiles.south_east,
-        borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)',
-        borderWidth: orientation === 'south_east' ? 2.5 : 1, fill: orientation === 'south_east',
-        tension: 0.4, pointRadius: 0,
-      },
-      {
-        label: 'South-West', data: profiles.south_west,
-        borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)',
-        borderWidth: orientation === 'south_west' ? 2.5 : 1, fill: orientation === 'south_west',
-        tension: 0.4, pointRadius: 0,
-      },
+      { label: 'South', data: profiles.south, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', borderWidth: orientation === 'south' ? 2.5 : 1, fill: orientation === 'south', tension: 0.4, pointRadius: 0 },
+      { label: 'East-West', data: profiles.east_west, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', borderWidth: orientation === 'east_west' ? 2.5 : 1, fill: orientation === 'east_west', tension: 0.4, pointRadius: 0 },
+      { label: 'South-East', data: profiles.south_east, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', borderWidth: orientation === 'south_east' ? 2.5 : 1, fill: orientation === 'south_east', tension: 0.4, pointRadius: 0 },
+      { label: 'South-West', data: profiles.south_west, borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', borderWidth: orientation === 'south_west' ? 2.5 : 1, fill: orientation === 'south_west', tension: 0.4, pointRadius: 0 },
     ],
   };
 
   return (
     <div className="glass-card p-4">
-      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-        Daily Generation Profile (Midsummer)
-      </h4>
-      <div className="h-48">
-        <Line data={data} options={{ ...CHART_OPTS, plugins: { ...CHART_OPTS.plugins, title: { display: false } } }} />
-      </div>
+      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Daily Generation Profile (Midsummer)</h4>
+      <div className="h-48"><Line data={data} options={{ ...CHART_OPTS, plugins: { ...CHART_OPTS.plugins, title: { display: false } } }} /></div>
     </div>
   );
 };
 
-// ─── Clipping vs DC/AC Ratio ─────────────────────────────────────────────────
-export const ClippingChart: React.FC<{ scenarios: ScenarioResult[] }> = ({ scenarios }) => {
+export const ClippingChart: React.FC<{ scenarios: CombinedScenarioResult[], productionCase: ProductionCase }> = ({ scenarios, productionCase }) => {
   if (scenarios.length < 2) return null;
 
-  const data = {
-    labels: scenarios.map(s => `${s.dcAcRatio}×`),
-    datasets: [
-      {
-        label: 'Clipping %',
-        data: scenarios.map(s => s.clippingPercent),
-        backgroundColor: scenarios.map(s =>
-          s.clippingPercent > 5 ? 'rgba(245,158,11,0.6)' : 'rgba(16,185,129,0.4)'
-        ),
-        borderColor: scenarios.map(s =>
-          s.clippingPercent > 5 ? '#f59e0b' : '#10b981'
-        ),
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-    ],
-  };
+  const labels = scenarios.map(s => `${s.dcAcRatio}×`);
+  const datasets = [];
+
+  if (productionCase === 'p50' || productionCase === 'compare') {
+    datasets.push({
+      label: 'P50 Clipping %',
+      data: scenarios.map(s => s.p50.clippingPercent),
+      backgroundColor: 'rgba(16,185,129,0.4)',
+      borderColor: '#10b981',
+      borderWidth: 1, borderRadius: 4,
+    });
+  }
+  if (productionCase === 'p90' || productionCase === 'compare') {
+    datasets.push({
+      label: 'P90 Clipping %',
+      data: scenarios.map(s => s.p90.clippingPercent),
+      backgroundColor: 'rgba(245,158,11,0.4)',
+      borderColor: '#f59e0b',
+      borderWidth: 1, borderRadius: 4,
+    });
+  }
+
+  const data = { labels, datasets };
 
   return (
     <div className="glass-card p-4">
       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Clipping % by DC/AC Ratio</h4>
-      <div className="h-48">
-        <Bar data={data} options={CHART_OPTS} />
-      </div>
+      <div className="h-48"><Bar data={data} options={CHART_OPTS} /></div>
     </div>
   );
 };
 
-// ─── Revenue vs DC/AC Ratio ──────────────────────────────────────────────────
-export const RevenueChart: React.FC<{ scenarios: ScenarioResult[]; showMarket: boolean; showTariff: boolean }> = ({
-  scenarios, showMarket, showTariff,
-}) => {
+export const RevenueChart: React.FC<{ scenarios: CombinedScenarioResult[]; showMarket: boolean; showTariff: boolean, productionCase: ProductionCase }> = ({ scenarios, showMarket, productionCase }) => {
   if (scenarios.length < 2) return null;
 
   const datasets = [];
   if (showMarket) {
-    datasets.push({
-      label: 'Market Revenue (M€)',
-      data: scenarios.map(s => s.lifetimeRevenueMarket / 1e6),
-      borderColor: '#10b981',
-      backgroundColor: 'rgba(16,185,129,0.15)',
-      fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#10b981',
-    });
-  }
-  if (showTariff) {
-    datasets.push({
-      label: 'Tariff Revenue (M€)',
-      data: scenarios.map(s => s.lifetimeRevenueTariff / 1e6),
-      borderColor: '#3b82f6',
-      backgroundColor: 'rgba(59,130,246,0.15)',
-      fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#3b82f6',
-    });
+    if (productionCase === 'p50' || productionCase === 'compare') {
+      datasets.push({ label: 'P50 Market Rev (M€)', data: scenarios.map(s => s.p50.lifetimeRevenueMarket / 1e6), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.15)', fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#10b981' });
+    }
+    if (productionCase === 'p90' || productionCase === 'compare') {
+      datasets.push({ label: 'P90 Market Rev (M€)', data: scenarios.map(s => s.p90.lifetimeRevenueMarket / 1e6), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.15)', fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#f59e0b' });
+    }
   }
 
   const data = { labels: scenarios.map(s => `${s.dcAcRatio}×`), datasets };
@@ -139,60 +104,107 @@ export const RevenueChart: React.FC<{ scenarios: ScenarioResult[]; showMarket: b
   return (
     <div className="glass-card p-4">
       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Lifetime Revenue by DC/AC Ratio</h4>
-      <div className="h-48">
-        <Line data={data} options={CHART_OPTS} />
-      </div>
+      <div className="h-48"><Line data={data} options={CHART_OPTS} /></div>
     </div>
   );
 };
 
-// ─── Generated vs Injected (24h profile for selected scenario) ───────────────
-export const GenerationChart: React.FC<{ scenario: ScenarioResult | null }> = ({ scenario }) => {
-  if (!scenario?.hourlyGenerated || !scenario?.hourlyInjected) return null;
+export const GenerationChart: React.FC<{ scenario: CombinedScenarioResult | null, productionCase: ProductionCase }> = ({ scenario, productionCase }) => {
+  if (!scenario) return null;
+  const res = productionCase === 'p90' ? scenario.p90 : scenario.p50;
+  if (!res.hourlyGenerated || !res.hourlyInjected) return null;
+  
+  const midsummerStart = 4344;
 
-  // Average to 24h shape for display
-  const avgGen = new Array(24).fill(0);
-  const avgInj = new Array(24).fill(0);
-  const counts = new Array(24).fill(0);
-
-  for (let h = 0; h < Math.min(scenario.hourlyGenerated.length, 8760); h++) {
-    const hod = h % 24;
-    avgGen[hod] += scenario.hourlyGenerated[h];
-    avgInj[hod] += scenario.hourlyInjected[h];
-    counts[hod]++;
-  }
-
-  const genData = avgGen.map((v, i) => counts[i] > 0 ? v / counts[i] : 0);
-  const injData = avgInj.map((v, i) => counts[i] > 0 ? v / counts[i] : 0);
+  const generated = res.hourlyGenerated.slice(midsummerStart, midsummerStart + 24);
+  const injected = res.hourlyInjected.slice(midsummerStart, midsummerStart + 24);
 
   const data = {
     labels: Array.from({ length: 24 }, (_, i) => `${i}:00`),
     datasets: [
+      { label: 'Generated (MW)', data: generated, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.4, pointRadius: 0 },
+      { label: 'Injected (MW)', data: injected, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.2)', fill: true, tension: 0.4, pointRadius: 0, borderDash: [5, 5] },
+    ],
+  };
+
+  return (
+    <div className="glass-card p-4">
+      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Injected vs Generated (Selected Ratio)</h4>
+      <div className="h-48"><Line data={data} options={CHART_OPTS} /></div>
+    </div>
+  );
+};
+
+export const MarginalRevenueChart: React.FC<{ scenarios: CombinedScenarioResult[], productionCase: ProductionCase }> = ({ scenarios, productionCase }) => {
+  if (scenarios.length < 2) return null;
+
+  const labels = scenarios.map(s => `${s.dcAcRatio}×`).slice(1);
+  const datasets = [];
+
+  if (productionCase === 'p50' || productionCase === 'compare') {
+    datasets.push({
+      label: 'P50 Marginal Rev (€/MWp)',
+      data: scenarios.map(s => s.p50.marginalRevenuePerMWpMarket).slice(1),
+      backgroundColor: 'rgba(59,130,246,0.6)',
+      borderColor: '#3b82f6',
+      borderWidth: 1, borderRadius: 4,
+    });
+  }
+  
+  if (productionCase === 'p90' || productionCase === 'compare') {
+    datasets.push({
+      label: 'P90 Marginal Rev (€/MWp)',
+      data: scenarios.map(s => s.p90.marginalRevenuePerMWpMarket).slice(1),
+      backgroundColor: 'rgba(139,92,246,0.6)',
+      borderColor: '#8b5cf6',
+      borderWidth: 1, borderRadius: 4,
+    });
+  }
+
+  const data = { labels, datasets };
+
+  return (
+    <div className="glass-card p-4">
+      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Marginal Market Revenue</h4>
+      <div className="h-48"><Bar data={data} options={CHART_OPTS} /></div>
+    </div>
+  );
+};
+
+export const CumulativeCashflowChart: React.FC<{ scenario: CombinedScenarioResult | null, productionCase: ProductionCase }> = ({ scenario, productionCase }) => {
+  const res = productionCase === 'p90' ? scenario?.p90 : scenario?.p50;
+  if (!res || !res.annualCashflows || res.annualCashflows.length === 0 || !res.totalCapex) return null;
+
+  let cumCF = -res.totalCapex;
+  const dataPoints = [cumCF];
+  
+  for (let i = 0; i < res.annualCashflows.length; i++) {
+    cumCF += res.annualCashflows[i];
+    dataPoints.push(cumCF / 1e6); // M€
+  }
+  dataPoints[0] = dataPoints[0] / 1e6;
+
+  const data = {
+    labels: Array.from({ length: dataPoints.length }, (_, i) => `Yr ${i}`),
+    datasets: [
       {
-        label: 'DC Generated (MW avg)',
-        data: genData,
-        borderColor: '#f59e0b',
-        backgroundColor: 'rgba(245,158,11,0.15)',
-        fill: true, tension: 0.4, pointRadius: 0,
-      },
-      {
-        label: 'AC Injected (MW avg)',
-        data: injData,
+        label: `${productionCase.toUpperCase()} Cumulative CF (M€)`,
+        data: dataPoints,
         borderColor: '#10b981',
-        backgroundColor: 'rgba(16,185,129,0.3)',
-        fill: true, tension: 0.4, pointRadius: 0,
+        backgroundColor: 'rgba(16,185,129,0.1)',
+        fill: true, tension: 0.1, pointRadius: 2,
+        segment: {
+          borderColor: (ctx: any) => ctx.p1.parsed.y < 0 ? '#ef4444' : '#10b981',
+          backgroundColor: (ctx: any) => ctx.p1.parsed.y < 0 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
+        }
       },
     ],
   };
 
   return (
     <div className="glass-card p-4">
-      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-        Generated vs Injected Power (Annual Avg by Hour)
-      </h4>
-      <div className="h-48">
-        <Line data={data} options={CHART_OPTS} />
-      </div>
+      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Project Lifetime Cash Flow (M€)</h4>
+      <div className="h-48"><Line data={data} options={CHART_OPTS} /></div>
     </div>
   );
 };

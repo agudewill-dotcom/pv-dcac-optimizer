@@ -118,11 +118,11 @@ export function getSubstationRecommendation(acCapacityMWac: number): SubstationR
     return {
       required: true,
       type: 'project_substation',
-      label: 'Dedicated MV project substation',
-      description: `Project-specific MV substation with ring main unit (RMU), protection relays, and SCADA interface. Multiple transformers (${Math.ceil(acCapacityMWac / 5)} × ${Math.min(5000, Math.ceil(acCapacityMWac * 1000 / Math.ceil(acCapacityMWac / 5)))} kVA) required. Grid operator approval (Netzanschlussbegehren) needed.`,
+      label: 'MV Transfer Station & EVU Connection',
+      description: `Dedicated MV transfer station (Übergabestation) with EVU connection costs. Grid operator approval (Netzanschlussbegehren) needed.`,
       voltageLevel: acCapacityMWac <= 10 ? 'MV_20' : 'MV_30',
       voltageLabelKV: acCapacityMWac <= 10 ? '20 kV' : '30 kV',
-      estimatedCostRange: '250–700 k€',
+      estimatedCostRange: '200–500 k€',
       typicalLeadTime: '6–12 months',
     };
   }
@@ -229,7 +229,10 @@ export function calculateCableRoute(
 }
 
 // ─── Substation cost estimation (point estimates, k€) ────────────────────────
-function estimateSubstationCostKEur(type: SubstationRecommendation['type'], acMWac: number): {
+function estimateSubstationCostKEur(
+  type: SubstationRecommendation['type'], 
+  gridConfig: import('../types').GridConfig
+): {
   substationKEur: number;
   permittingKEur: number;
   totalKEur: number;
@@ -237,32 +240,32 @@ function estimateSubstationCostKEur(type: SubstationRecommendation['type'], acMW
   switch (type) {
     case 'none':
       return { substationKEur: 0, permittingKEur: 5, totalKEur: 5 };
+      
     case 'compact_station':
-      // ~80k base + 30k per MWac
-      return {
-        substationKEur: Math.round(80 + acMWac * 30),
-        permittingKEur: Math.round(15 + acMWac * 3),
-        totalKEur: Math.round(95 + acMWac * 33),
+      return { 
+        substationKEur: 90, 
+        permittingKEur: 10, 
+        totalKEur: 100 
       };
+      
     case 'project_substation':
-      // ~200k base + 25k per MWac + permitting with Netzanschlussbegehren
-      return {
-        substationKEur: Math.round(200 + acMWac * 25),
-        permittingKEur: Math.round(50 + acMWac * 5),
-        totalKEur: Math.round(250 + acMWac * 30),
+      return { 
+        substationKEur: gridConfig.mvBaseCostKEur, 
+        permittingKEur: 30, 
+        totalKEur: gridConfig.mvBaseCostKEur + 30 
       };
     case 'hv_substation':
-      // ~1500k base + 40k per MWac + extensive permitting (Netzverträglichkeitsprüfung)
-      return {
-        substationKEur: Math.round(1500 + acMWac * 40),
-        permittingKEur: Math.round(200 + acMWac * 8),
-        totalKEur: Math.round(1700 + acMWac * 48),
+      return { 
+        substationKEur: gridConfig.hvBaseCostKEur, 
+        permittingKEur: 150, 
+        totalKEur: gridConfig.hvBaseCostKEur + 150 
       };
+      
     case 'multi_substation':
-      return {
-        substationKEur: Math.round(3000 + acMWac * 50),
-        permittingKEur: Math.round(500 + acMWac * 10),
-        totalKEur: Math.round(3500 + acMWac * 60),
+      return { 
+        substationKEur: gridConfig.hvBaseCostKEur * 2, 
+        permittingKEur: 300, 
+        totalKEur: gridConfig.hvBaseCostKEur * 2 + 300 
       };
     default:
       return { substationKEur: 0, permittingKEur: 0, totalKEur: 0 };
@@ -295,25 +298,26 @@ export interface SubstationEconomics {
 }
 
 export function calculateSubstationEconomics(
-  dcCapacityMWp: number,
+  dcMWp: number,
   acCapacityMWac: number,
   lifetimeClippedMWh: number,
-  lifetimeRevenueMarketMEur: number,
+  lifetimeMarketRevenueMEur: number, // Total market revenue across lifetime (no clipping penalty yet)
   lifetimeInjectedMWh: number,
   clippingPercent: number,
+  gridConfig: import('../types').GridConfig
 ): SubstationEconomics {
-  // Option A: HV — DC/AC = 1.0 (AC = DC)
-  const hvAc = dcCapacityMWp;
+  // Option A: HV — DC/AC  // 1. Force HV calculation
+  const hvAc = dcMWp; // Zero clipping
   const hvSub = getSubstationRecommendation(hvAc);
-  const hvCost = estimateSubstationCostKEur(hvSub.type, hvAc);
+  const hvCost = estimateSubstationCostKEur(hvSub.type, gridConfig);
 
-  // Option B: Current MV
+  // 2. MV calculation (current state)
   const mvSub = getSubstationRecommendation(acCapacityMWac);
-  const mvCost = estimateSubstationCostKEur(mvSub.type, acCapacityMWac);
+  const mvCost = estimateSubstationCostKEur(mvSub.type, gridConfig);
 
   // Clipping revenue loss: use average market price from actual revenue data
   const avgPriceEurPerMWh = lifetimeInjectedMWh > 0
-    ? (lifetimeRevenueMarketMEur * 1000) / lifetimeInjectedMWh * 1000  // M€ → k€ → EUR
+    ? (lifetimeMarketRevenueMEur * 1000) / lifetimeInjectedMWh * 1000  // M€ → k€ → EUR
     : 70; // fallback
   const clippingRevenueLossKEur = (lifetimeClippedMWh * avgPriceEurPerMWh) / 1000;
 
@@ -350,7 +354,7 @@ export function calculateSubstationEconomics(
     mvCostKEur: mvCost,
     lifetimeClippedMWh,
     lifetimeClippingRevenueLossKEur: Math.round(clippingRevenueLossKEur),
-    dcAcRatio: dcCapacityMWp / acCapacityMWac,
+    dcAcRatio: dcMWp / acCapacityMWac,
     clippingPercent,
     infrastructureSavingKEur: Math.round(infrastructureSaving),
     netAdvantageKEur: Math.round(netAdvantage),

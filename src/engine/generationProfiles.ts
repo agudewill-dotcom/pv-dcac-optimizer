@@ -257,28 +257,76 @@ export function getOrientationInfo(orientation: Orientation): {
  * Uses a midsummer day (June 21, DOY ~172) for visual impact.
  */
 export function getDailyPreviewProfile(orientation: Orientation): number[] {
-  const doy = 172; // June 21
-  const daily: number[] = [];
-
-  for (let hod = 0; hod < 24; hod++) {
-    const decl = solarDeclination(doy);
-    const ha = hourAngle(hod + 0.5);
-    const elev = solarElevation(decl, ha);
-    const az = solarAzimuth(decl, ha, elev);
-
-    if (elev <= 1) {
-      daily.push(0);
-      continue;
-    }
-
-    const sinElev = Math.sin(elev * DEG2RAD);
-    const airmass = 1 / Math.max(sinElev, 0.05);
-    const clearSky = Math.exp(-0.185 * airmass) * sinElev;
-    const orientFactor = orientationFactor(orientation, elev, az);
-    daily.push(Math.max(0, clearSky * orientFactor));
+  // Pre-calculated textbook shapes for illustrative purposes (24 hours)
+  switch (orientation) {
+    case 'south':
+      return [
+        0, 0, 0, 0, 0, 
+        0.05, 0.2, 0.4, 0.65, 0.85, 0.98, 1.0, 0.98, 0.85, 0.65, 0.4, 0.2, 0.05, 
+        0, 0, 0, 0, 0, 0
+      ];
+    case 'east_west':
+      return [
+        0, 0, 0, 0, 0, 
+        0.1, 0.3, 0.5, 0.65, 0.72, 0.75, 0.76, 0.75, 0.72, 0.65, 0.5, 0.3, 0.1, 
+        0, 0, 0, 0, 0, 0
+      ];
+    case 'south_east':
+      return [
+        0, 0, 0, 0, 0, 
+        0.15, 0.4, 0.7, 0.85, 0.95, 0.9, 0.75, 0.6, 0.45, 0.3, 0.15, 0.05, 0, 
+        0, 0, 0, 0, 0, 0
+      ];
+    case 'south_west':
+      return [
+        0, 0, 0, 0, 0, 
+        0, 0.05, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 0.95, 0.85, 0.7, 0.4, 0.15, 
+        0, 0, 0, 0, 0, 0
+      ];
+    default:
+      return new Array(24).fill(0);
   }
-
-  // Normalize to peak = 1.0
-  const peak = Math.max(...daily, 0.001);
-  return daily.map(v => v / peak);
 }
+
+/**
+ * Fetch 8760h PV generation profile from PVGIS 5.2 API
+ * Uses 2019 reference year to ensure exactly 8760 non-leap hours.
+ * Returns a normalized capacity factor profile [0, 1].
+ */
+export async function fetchPVGISProfile(lat: number, lon: number, orientation: Orientation): Promise<number[]> {
+  const fetchSingle = async (angle: number, aspect: number) => {
+    const rawUrl = `https://re.jrc.ec.europa.eu/api/v5_2/seriescalc?lat=${lat}&lon=${lon}&startyear=2019&endyear=2019&pvcalculation=1&peakpower=1&loss=10&angle=${angle}&aspect=${aspect}&outputformat=json`;
+    
+    // PVGIS does not always return CORS headers, so we route through a proxy
+    const url = `https://corsproxy.io/?${encodeURIComponent(rawUrl)}`;
+    
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('PVGIS API failed: ' + res.statusText);
+    const data = await res.json();
+    if (!data?.outputs?.hourly) throw new Error('Invalid PVGIS data format');
+    
+    // Convert W (per 1 kWp) to capacity factor (divide by 1000)
+    return data.outputs.hourly.map((h: any) => Math.min(1.0, Math.max(0, (h.P || 0) / 1000)));
+  };
+
+  switch (orientation) {
+    case 'south':
+      return await fetchSingle(35, 0);
+    case 'south_east':
+      return await fetchSingle(25, -45);
+    case 'south_west':
+      return await fetchSingle(25, 45);
+    case 'east_west': {
+      const east = await fetchSingle(15, -90);
+      const west = await fetchSingle(15, 90);
+      const combined = new Array(8760).fill(0);
+      for (let i = 0; i < Math.min(east.length, west.length, 8760); i++) {
+        combined[i] = ((east[i] || 0) + (west[i] || 0)) / 2;
+      }
+      return combined;
+    }
+    default:
+      return await fetchSingle(35, 0);
+  }
+}
+

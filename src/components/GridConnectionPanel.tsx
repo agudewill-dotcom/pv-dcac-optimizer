@@ -2,28 +2,28 @@ import React from 'react';
 import { Cable, Building2, ArrowRight, AlertTriangle, CheckCircle, Scale, TrendingDown, TrendingUp } from 'lucide-react';
 import { getSubstationRecommendation, calculateCableRoute, calculateSubstationEconomics } from '../engine/gridConnection';
 import type { SubstationRecommendation, CableRouteResult, SubstationEconomics } from '../engine/gridConnection';
-import type { ScenarioResult } from '../types';
+import type { CombinedScenarioResult, GridConfig } from '../types';
 
 interface Props {
   acCapacityMWac: number;
   dcCapacityMWp: number;
-  scenario: ScenarioResult | null;  // selected scenario with clipping data
+  gridConfig: GridConfig;
+  scenario: CombinedScenarioResult | null;
 }
 
-export const GridConnectionPanel: React.FC<Props> = ({ acCapacityMWac, dcCapacityMWp, scenario }) => {
+export const GridConnectionPanel: React.FC<Props> = ({ acCapacityMWac, dcCapacityMWp, gridConfig, scenario }) => {
   if (acCapacityMWac <= 0) return null;
-
   const sub = getSubstationRecommendation(acCapacityMWac);
   const cable = calculateCableRoute(acCapacityMWac);
 
-  // Calculate MV vs HV economics if we have scenario data
   const economics = scenario ? calculateSubstationEconomics(
     dcCapacityMWp,
     acCapacityMWac,
-    scenario.lifetimeClippedMWh,
-    scenario.lifetimeRevenueMarket / 1e6,  // EUR → M€
-    scenario.lifetimeInjectedMWh,
-    scenario.clippingPercent,
+    scenario.p50.lifetimeClippedMWh,
+    scenario.p50.lifetimeRevenueMarket / 1e6,  // EUR → M€
+    scenario.p50.lifetimeInjectedMWh,
+    scenario.p50.clippingPercent,
+    gridConfig
   ) : null;
 
   return (
@@ -135,21 +135,18 @@ const EconomicsComparison: React.FC<{ econ: SubstationEconomics }> = ({ econ }) 
               <span>AC Capacity</span>
               <span className="font-bold text-white">{econ.mvAcCapacityMWac} MWac</span>
             </div>
-            <div className="flex justify-between">
+            <div className="grid grid-cols-2 gap-y-2 text-[10px]">
               <span>Connection Level</span>
-              <span className="font-bold text-white">{econ.mvSubstation.voltageLabelKV}</span>
-            </div>
-            <div className="flex justify-between">
+              <span className="font-bold text-white text-right">{econ.mvSubstation.voltageLabelKV}</span>
+              
               <span>Substation Type</span>
-              <span className="font-bold text-white">{econ.mvSubstation.label}</span>
-            </div>
-            <div className="flex justify-between border-t border-white/5 pt-1 mt-1">
-              <span>Substation Cost</span>
-              <span className="font-bold text-emerald-400">{fmt(econ.mvCostKEur.substationKEur)}</span>
-            </div>
-            <div className="flex justify-between">
+              <span className="font-bold text-white text-right">{econ.mvSubstation.label}</span>
+
+              <span>EVU Connection Costs</span>
+              <span className="font-bold text-emerald-400 text-right">{fmt(econ.mvCostKEur.substationKEur)}</span>
+
               <span>Permitting & Studies</span>
-              <span className="font-bold text-emerald-400">{fmt(econ.mvCostKEur.permittingKEur)}</span>
+              <span className="font-bold text-emerald-400 text-right">{fmt(econ.mvCostKEur.permittingKEur)}</span>
             </div>
             <div className="flex justify-between font-bold border-t border-white/5 pt-1">
               <span className="text-slate-300">Total Infrastructure</span>
