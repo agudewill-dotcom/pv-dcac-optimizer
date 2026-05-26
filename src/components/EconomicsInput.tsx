@@ -45,6 +45,8 @@ export const EconomicsInput: React.FC<Props> = ({ capexConfig, setCapex, catalog
   };
 
   const getItems = (cat: string, sub: string) => catalog.filter(i => i.category === cat && i.subcategory === sub);
+  
+  const fmtCurrency = (val: number) => val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="space-y-6 animate-fade-in mt-8">
@@ -84,7 +86,7 @@ export const EconomicsInput: React.FC<Props> = ({ capexConfig, setCapex, catalog
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select UK System</label>
                 <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedUKItemId} onChange={(e) => update('selectedUKItemId', e.target.value)}>
-                  {getItems('LV', 'Mounting').map(i => <option key={i.id} value={i.id}>{i.label} ({i.defaultValue} {i.unit})</option>)}
+                  {getItems('LV', 'Mounting').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
                 </select>
               </div>
             )}
@@ -121,7 +123,7 @@ export const EconomicsInput: React.FC<Props> = ({ capexConfig, setCapex, catalog
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Module</label>
               <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedModuleId} onChange={(e) => update('selectedModuleId', e.target.value)}>
-                {getItems('LV', 'Module').map(i => <option key={i.id} value={i.id}>{i.label} ({i.defaultValue} {i.unit})</option>)}
+                {getItems('LV', 'Module').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
               </select>
             </div>
             <div>
@@ -145,10 +147,10 @@ export const EconomicsInput: React.FC<Props> = ({ capexConfig, setCapex, catalog
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Cable Catalog</label>
                 <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedLVCableId} onChange={(e) => update('selectedLVCableId', e.target.value)}>
                   <optgroup label="Copper">
-                    {getItems('LV', 'Cable_Cu').map(i => <option key={i.id} value={i.id}>{i.label} ({i.defaultValue} {i.unit})</option>)}
+                    {getItems('LV', 'Cable_Cu').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
                   </optgroup>
                   <optgroup label="Aluminum">
-                    {getItems('LV', 'Cable_Al').map(i => <option key={i.id} value={i.id}>{i.label} ({i.defaultValue} {i.unit})</option>)}
+                    {getItems('LV', 'Cable_Al').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
                   </optgroup>
                 </select>
               </div>
@@ -231,25 +233,25 @@ export const EconomicsInput: React.FC<Props> = ({ capexConfig, setCapex, catalog
            <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Transformer</label>
               <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedTrafoId} onChange={(e) => update('selectedTrafoId', e.target.value)}>
-                {getItems('MV', 'Transformer').map(i => <option key={i.id} value={i.id}>{i.label} ({i.defaultValue} {i.unit})</option>)}
+                {getItems('MV', 'Transformer').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
               </select>
            </div>
            <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Transfer Station (ÜGS)</label>
               <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedUGSId} onChange={(e) => update('selectedUGSId', e.target.value)}>
-                {getItems('MV', 'Station').map(i => <option key={i.id} value={i.id}>{i.label} ({i.defaultValue} {i.unit})</option>)}
+                {getItems('MV', 'Station').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
               </select>
            </div>
            <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Kombistation</label>
               <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedKombiId} onChange={(e) => update('selectedKombiId', e.target.value)}>
-                {getItems('MV', 'Kombi').map(i => <option key={i.id} value={i.id}>{i.label} ({i.defaultValue} {i.unit})</option>)}
+                {getItems('MV', 'Kombi').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
               </select>
            </div>
            <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select HV Substation</label>
               <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedHVSubstationId} onChange={(e) => update('selectedHVSubstationId', e.target.value)}>
-                {getItems('HV', 'Substation').map(i => <option key={i.id} value={i.id}>{i.label} ({i.defaultValue} {i.unit})</option>)}
+                {getItems('HV', 'Substation').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
               </select>
            </div>
         </div>
