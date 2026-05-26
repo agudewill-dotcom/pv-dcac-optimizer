@@ -8,7 +8,8 @@ import { Methodology } from './components/Methodology';
 import { ExecutiveSummary } from './components/ExecutiveSummary';
 import { ProductionClipping } from './components/ProductionClipping';
 import { RevenueLogic } from './components/RevenueLogic';
-import { EconomicsScreening } from './components/EconomicsScreening';
+import { EconomicsInput } from './components/EconomicsInput';
+import { EconomicOutput } from './components/EconomicOutput';
 import { Recommendation } from './components/Recommendation';
 import { BessPanel } from './components/BessPanel';
 import { InverterPanel } from './components/InverterPanel';
@@ -17,25 +18,27 @@ import { getDefaultPriceProfile } from './engine/priceData';
 import { exportResultsPDF } from './engine/pdfExport';
 import { fetchPVGISProfile } from './engine/generationProfiles';
 import type {
-  ProjectConfig, PowerConfig, PriceConfig, CapexConfig, Orientation, GridConfig, ProductionCase, BessConfig, InverterConfig
+  ProjectConfig, PowerConfig, PriceConfig, Orientation, GridConfig, ProductionCase, BessConfig, InverterConfig, DetailedCapexConfig
 } from './types';
+import type { CostItem } from './data/costCatalog';
 import {
-  DEFAULT_PROJECT, DEFAULT_POWER, DEFAULT_PRICE, DEFAULT_CAPEX, DEFAULT_BESS, DEFAULT_GRID_CONFIG, DEFAULT_INVERTER_CONFIG,
+  DEFAULT_PROJECT, DEFAULT_POWER, DEFAULT_PRICE, DEFAULT_BESS, DEFAULT_GRID_CONFIG, DEFAULT_INVERTER_CONFIG, DEFAULT_DETAILED_CAPEX
 } from './types';
 
 // ─── Tab definitions ────────────────────────────────────────────────────────
-type TabId = 'summary' | 'setup' | 'technical' | 'production' | 'revenue' | 'economics' | 'scenarios' | 'recommendation' | 'methodology';
+type TabId = 'summary' | 'setup' | 'technical' | 'production' | 'revenue' | 'economics_input' | 'economics_output' | 'scenarios' | 'recommendation' | 'methodology';
 
 const TABS: { id: TabId; label: string; icon: any; short?: string; highlighted?: boolean }[] = [
   { id: 'setup', label: '1. Project Setup', short: 'Setup', icon: BookOpen },
   { id: 'technical', label: '2. Technical Config', short: 'Technical', icon: Zap },
   { id: 'production', label: '3. Production & Clipping', short: 'Production', icon: BarChart3 },
   { id: 'revenue', label: '4. Revenue Logic', short: 'Revenue', icon: DollarSign },
-  { id: 'economics', label: '5. Economics / CAPEX', short: 'Economics', icon: Activity },
-  { id: 'scenarios', label: '6. Scenario Comparison', short: 'Scenarios', icon: BarChart3 },
-  { id: 'recommendation', label: '7. Recommendation', short: 'Recommend', icon: Activity },
-  { id: 'methodology', label: '8. Methodology', short: 'Methodology', icon: BookOpen },
-  { id: 'summary', label: '9. Executive Summary', short: 'Summary', icon: Target, highlighted: true },
+  { id: 'economics_input', label: '5. Economics Input', short: 'Econ Input', icon: Activity },
+  { id: 'economics_output', label: '6. Economic Output', short: 'Econ Output', icon: Activity },
+  { id: 'scenarios', label: '7. Scenario Comparison', short: 'Scenarios', icon: BarChart3 },
+  { id: 'recommendation', label: '8. Recommendation', short: 'Recommend', icon: Activity },
+  { id: 'methodology', label: '9. Methodology', short: 'Methodology', icon: BookOpen },
+  { id: 'summary', label: '10. Executive Summary', short: 'Summary', icon: Target, highlighted: true },
 ];
 
 
@@ -50,14 +53,22 @@ function App() {
   const [power, setPower] = useState<PowerConfig>(DEFAULT_POWER);
   const [orientation, setOrientation] = useState<Orientation>('south');
   const [price, setPrice] = useState<PriceConfig>(INITIAL_PRICE);
-  const [capex, setCapex] = useState<CapexConfig>(DEFAULT_CAPEX);
+  const [capex, setCapex] = useState<DetailedCapexConfig>(DEFAULT_DETAILED_CAPEX);
   const [bess, setBess] = useState<BessConfig>(DEFAULT_BESS);
-  const [grid, setGrid] = useState<GridConfig>(DEFAULT_GRID_CONFIG);
+  const [grid] = useState<GridConfig>(DEFAULT_GRID_CONFIG);
+  const [costCatalog, setCostCatalog] = useState<CostItem[]>([]);
   const [inverter, setInverter] = useState<InverterConfig>(DEFAULT_INVERTER_CONFIG);
   const [selectedRatio, setSelectedRatio] = useState<number>(DEFAULT_POWER.dcAcRatio);
   const [productionCase, setProductionCase] = useState<ProductionCase>('p50');
 
   const [isFetchingPVGIS, setIsFetchingPVGIS] = useState(false);
+
+  // Initialize catalog (must be inside App or component to keep state)
+  useMemo(() => {
+    if (costCatalog.length === 0) {
+       import('./data/costCatalog').then(m => setCostCatalog(m.DEFAULT_COST_CATALOG));
+    }
+  }, [costCatalog.length]);
   const [pvgisError, setPvgisError] = useState('');
 
   const handleFetchPVGIS = async () => {
@@ -77,12 +88,12 @@ function App() {
   const scenarios = useMemo(() => {
     try {
       if (power.dcCapacityMWp <= 0 || power.acCapacityMWac <= 0) return [];
-      return runOptimization(project, power, orientation, price, capex, grid, bess, inverter);
+      return runOptimization(project, power, orientation, price, capex, costCatalog, grid, bess, inverter);
     } catch (err) {
       console.error('Optimization error:', err);
       return [];
     }
-  }, [project, power, orientation, price, capex, bess, inverter]);
+  }, [project, power, orientation, price, capex, costCatalog, grid, bess, inverter]);
 
   // ─── Validation warnings ───────────────────────────────────────────────────
   const warnings: string[] = [];
@@ -290,12 +301,22 @@ function App() {
               <RevenueLogic priceConfig={price} onChange={setPrice} />
             )}
 
-            {activeTab === 'economics' && (
-              <EconomicsScreening 
+            {activeTab === 'economics_input' && (
+              <EconomicsInput 
                 capexConfig={capex} 
                 setCapex={setCapex} 
-                gridConfig={grid} 
-                setGrid={setGrid} 
+                catalog={costCatalog} 
+                setCatalog={setCostCatalog} 
+                inverterConfig={inverter}
+                setInverter={setInverter}
+                dcCapacityMWp={power.dcCapacityMWp}
+                targetExportAcMW={power.acCapacityMWac}
+              />
+            )}
+
+            {activeTab === 'economics_output' && (
+              <EconomicOutput 
+                capexConfig={capex} 
                 scenario={selected} 
                 scenarios={scenarios}
                 selectedRatio={selectedRatio}

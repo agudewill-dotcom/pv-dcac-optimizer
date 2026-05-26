@@ -6,9 +6,11 @@
  */
 
 import type {
-  ProjectConfig, PowerConfig, PriceConfig, CapexConfig, BessConfig, GridConfig,
-  Orientation, ScenarioResult, CombinedScenarioResult, InverterConfig
+  ProjectConfig, PowerConfig, PriceConfig, BessConfig, GridConfig,
+  Orientation, ScenarioResult, CombinedScenarioResult, InverterConfig, DetailedCapexConfig
 } from '../types';
+import type { CostItem } from '../data/costCatalog';
+import { calculateDetailedCapex } from './capexEngine';
 import { DEFAULT_RATIO_STEPS } from '../types';
 import { generateProfile } from './generationProfiles';
 import { simulateClipping } from './clippingEngine';
@@ -23,8 +25,9 @@ function runSingleScenario(
   ratio: number,
   project: ProjectConfig,
   price: PriceConfig,
-  capex: CapexConfig,
-  grid: GridConfig,
+  capex: DetailedCapexConfig,
+  catalog: CostItem[],
+  _grid: GridConfig,
   bess: BessConfig,
   inverter: InverterConfig
 ): ScenarioResult {
@@ -85,41 +88,36 @@ function runSingleScenario(
   let annualOpexVal = undefined;
 
   if (capex.enabled) {
-    const dcCapex = dcMWp * capex.capexPerMWpDC;
-    let acCapex = 0;
     let inverterCapex = 0;
-    
+    let numberOfUnits = 0;
+    let actualInstalledInverterAcMW = acMWac;
     if (inverter.enabled && inverterResult) {
       inverterCapex = inverterResult.inverterCapex;
-    } else {
-      acCapex = acMWac * capex.capexPerMWacAC;
+      numberOfUnits = inverterResult.numberOfUnits;
+      actualInstalledInverterAcMW = inverterResult.actualInstalledInverterAcMW;
     }
 
-    let bessStorageCapex = 0;
-    let bessPowerCapex = 0;
-    if (bess.duration !== 'none') {
-      const durationHours = bess.duration === '4h' ? 4 : 2;
-      const bessCapacity = bess.powerMW * durationHours;
-      bessPowerCapex = bess.powerMW * capex.bessCapexPerMW;
-      bessStorageCapex = bessCapacity * capex.bessCapexPerMWh;
-    }
-
-    const gridHvCapex = grid.hvBaseCostKEur * 1000;
-    const gridMvCapex = grid.mvBaseCostKEur * 1000;
-
-    capexBreakdown = {
-      dcCapex,
-      acCapex,
+    const detailedCapex = calculateDetailedCapex(
+      capex,
+      catalog,
+      dcMWp,
+      acMWac,
+      actualInstalledInverterAcMW,
       inverterCapex,
-      gridHvCapex,
-      gridMvCapex,
-      bessStorageCapex,
-      bessPowerCapex
-    };
+      numberOfUnits
+    );
 
-    totalCapex = dcCapex + acCapex + inverterCapex + gridHvCapex + gridMvCapex + bessStorageCapex + bessPowerCapex;
+    capexBreakdown = detailedCapex;
+    totalCapex = detailedCapex.totalCapex;
 
-    const annualOpex = (dcMWp + acMWac) / 2 * capex.opexPerMWYear;
+    let annualOpex = 0;
+    if (capex.opexMethod === 'per_mwp') {
+       annualOpex = dcMWp * capex.opexPerMWpYear;
+    } else if (capex.opexMethod === 'percent_capex') {
+       annualOpex = totalCapex * (capex.opexPercentCapex / 100);
+    } else {
+       annualOpex = capex.manualOpexTotal;
+    }
     annualOpexVal = annualOpex;
     annualCashflows = [];
     let cumulativeCF = -totalCapex;
@@ -241,7 +239,8 @@ export function runOptimization(
   power: PowerConfig,
   orientation: Orientation,
   price: PriceConfig,
-  capex: CapexConfig,
+  capex: DetailedCapexConfig,
+  catalog: CostItem[],
   grid: GridConfig,
   bess: BessConfig,
   inverter: InverterConfig,
@@ -294,8 +293,8 @@ export function runOptimization(
   }
 
   const combinedResults: CombinedScenarioResult[] = scenarios.map(({ dcMWp, acMWac, ratio }) => {
-    const p50 = runSingleScenario(p50Profile, dcMWp, acMWac, ratio, project, price, capex, grid, bess, inverter);
-    const p90 = runSingleScenario(p90Profile, dcMWp, acMWac, ratio, project, price, capex, grid, bess, inverter);
+    const p50 = runSingleScenario(p50Profile, dcMWp, acMWac, ratio, project, price, capex, catalog, grid, bess, inverter);
+    const p90 = runSingleScenario(p90Profile, dcMWp, acMWac, ratio, project, price, capex, catalog, grid, bess, inverter);
     
     // Manufacturer comparison: calculate inverter requirements for all products at this ratio
     let inverterComparison: CombinedScenarioResult['inverterComparison'] = undefined;

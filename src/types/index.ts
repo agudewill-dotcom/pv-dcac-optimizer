@@ -52,24 +52,152 @@ export interface GridConfig {
 }
 
 // ─── Optional CAPEX/Economics ────────────────────────────────────────────────
-export interface CapexConfig {
+export interface DetailedCapexConfig {
   enabled: boolean;
-  capexPerMWpDC: number;         // EUR/MWp for modules+mounting
-  capexPerMWacAC: number;        // EUR/MWac for inverter+trafo+grid
-  opexPerMWYear: number;         // EUR/MW/year
-  discountRate: number;          // e.g. 0.05 = 5%
-  bessCapexPerMWh: number;       // EUR/MWh storage capacity
-  bessCapexPerMW: number;        // EUR/MW power electronics
+  
+  // A1. Mounting structure / UK
+  ukMethod: 'catalog' | 'manual_kwp' | 'manual_total';
+  selectedUKItemId: string;
+  manualUKKwp: number;
+  manualUKTotal: number;
+  isAgriPV: boolean;
+  isRootProtection: boolean;
+  windLoadZone: 1 | 2 | 3 | 4;
+
+  // A2. Modules
+  selectedModuleId: string;
+  manualModuleWp: number;
+  manualModulePrice: number;
+  manualModuleQuantity?: number;
+
+  // A3. LV electrical
+  includeLVCable: boolean;
+  lvCableMethod: 'catalog' | 'manual_m' | 'manual_total';
+  selectedLVCableId: string;
+  lvCableLengthM: number;
+  lvCableRuns: number;
+  manualLVCableM: number;
+  manualLVCableTotal: number;
+
+  // A4. LV cable route
+  lvRouteLengthM: number;
+  lvShareOpenTrench: number;
+  lvShareCableTray: number;
+  lvShareAsphalt: number;
+  lvSharePressDrilling: number;
+  lvShareHDD: number;
+  manualLVRouteTotal?: number;
+
+  // A5. LV assembly
+  useSimplifiedMontage: boolean;
+  montageTotalKwp: number;
+  montageDCShare: number;
+  montageACShare: number;
+  manualDCAssemblyTotal?: number;
+  manualACAssemblyTotal?: number;
+
+  // A6. Site-specific LV adders
+  includeCompensatory: boolean;
+  compensatoryMethod: 'manual_total' | 'per_ha' | 'per_mwp';
+  compensatoryTotal: number;
+
+  includeOrdnance: boolean;
+  ordnanceMethod: 'manual_total' | 'per_ha' | 'per_sqm';
+  ordnanceTotal: number;
+
+  includeFireProtection: boolean;
+  fireProtectionTotal: number;
+
+  fenceLengthM: number;
+  fenceCostPerM: number;
+  manualFenceTotal?: number;
+
+  roadLengthM: number;
+  roadCostPerM: number;
+  manualRoadTotal?: number;
+
+  // B1. Grid connection concept
+  gridConcept: 'existing_mv' | 'transfer_station' | 'combined_station' | 'separate_trafo_ugs' | 'hv_substation' | 'edis_cell' | 'custom';
+  includeMVRoute: boolean;
+  includeUGS: boolean;
+  includeTrafo: boolean;
+  includeHVSubstation: boolean;
+  includeFeedInCell: boolean;
+  manualGridOverrideTotal?: number;
+
+  // B2. Cable route
+  mvRouteLengthM: number;
+  mvCombinedStationThresholdM: number;
+  mvSharePrivateRoad: number;
+  mvSharePublicRoad: number;
+  mvShareOpenTrench: number;
+  mvShareAsphalt: number;
+  mvSharePressDrilling: number;
+  mvShareHDD: number;
+  mvEasementCost: number;
+  mvPlanningCost: number;
+  mvManualRouteComplexityFactor: number;
+  manualMVRouteTotal?: number;
+  privateLandCostPerM: number;
+
+  // B3 & B5-B7. Station & Cable
+  selectedMVCableId: string;
+  mvCableRuns: number;
+  selectedTrafoId: string;
+  selectedUGSId: string;
+  selectedKombiId: string;
+  selectedHVSubstationId: string;
+
+  // D. BESS
+  selectedBessSystemId: string;
+  selectedBessInverterId: string;
+  bessInstallationCost: number;
+
+  // E. Certification
+  selectedCertId: string;
+  certComponentB: number;
+  certComponentC: number;
+
+  // F. OPEX & Lifetime
+  opexMethod: 'per_mwp' | 'percent_capex' | 'manual_total';
+  opexPerMWpYear: number;
+  opexPercentCapex: number;
+  manualOpexTotal: number;
+  discountRate: number;
+
+  // G. Contingency
+  contingencyPercent: number;
 }
 
-export interface CapexBreakdown {
-  dcCapex: number;
-  acCapex: number;
+export interface DetailedCapexBreakdown {
+  moduleCapex: number;
+  ukCapex: number;
+  lvCableMaterialCapex: number;
+  lvRouteInstallationCapex: number;
+  lvAssemblyCapex: number;
+  mvCableMaterialCapex: number;
+  mvRouteInstallationCapex: number;
+  transformerCapex: number;
+  ugsKombiCapex: number;
+  hvSubstationCapex: number;
   inverterCapex: number;
-  gridHvCapex: number;
-  gridMvCapex: number;
-  bessStorageCapex: number;
-  bessPowerCapex: number;
+  bessCapex: number;
+  certificationCapex: number;
+  fireProtectionCapex: number;
+  compensatoryCapex: number;
+  ordnanceCapex: number;
+  roadCapex: number;
+  fenceCapex: number;
+  otherCapex: number;
+  contingencyCapex: number;
+  totalCapex: number;
+  
+  // Groupings
+  groupLvPlant: number;
+  groupMvHvGrid: number;
+  groupInverter: number;
+  groupBess: number;
+  groupOther: number;
 }
 
 // ─── Scenario Result (one DC/AC ratio point) ─────────────────────────────────
@@ -124,7 +252,7 @@ export interface ScenarioResult {
 
   // Optional economics
   totalCapex?: number;
-  capexBreakdown?: CapexBreakdown;
+  capexBreakdown?: DetailedCapexBreakdown;
   annualOpex?: number;
   npv?: number;
   simplePaybackYears?: number;
@@ -164,7 +292,7 @@ export interface AppState {
   power: PowerConfig;
   orientation: Orientation;
   price: PriceConfig;
-  capex: CapexConfig;
+  capex: DetailedCapexConfig;
   grid: GridConfig;
   bess: BessConfig;
   scenarios: CombinedScenarioResult[];
@@ -217,14 +345,83 @@ export const DEFAULT_GRID_CONFIG: GridConfig = {
   mvBaseCostKEur: 800,
 };
 
-export const DEFAULT_CAPEX: CapexConfig = {
-  enabled: false,
-  capexPerMWpDC: 450000,
-  capexPerMWacAC: 120000,
-  opexPerMWYear: 12000,
+export const DEFAULT_DETAILED_CAPEX: DetailedCapexConfig = {
+  enabled: true,
+  ukMethod: 'catalog',
+  selectedUKItemId: 'lv_mounting_standard_uk__öko_pv',
+  manualUKKwp: 39,
+  manualUKTotal: 0,
+  isAgriPV: false,
+  isRootProtection: false,
+  windLoadZone: 2,
+  selectedModuleId: 'lv_module_sf_ja_455_72166m_dg_hc',
+  manualModuleWp: 455,
+  manualModulePrice: 100,
+  includeLVCable: true,
+  lvCableMethod: 'catalog',
+  selectedLVCableId: 'lv_cable_al_nayy_j_4x150mm²_se_sw',
+  lvCableLengthM: 1000,
+  lvCableRuns: 1,
+  manualLVCableM: 10,
+  manualLVCableTotal: 0,
+  lvRouteLengthM: 1000,
+  lvShareOpenTrench: 100,
+  lvShareCableTray: 0,
+  lvShareAsphalt: 0,
+  lvSharePressDrilling: 0,
+  lvShareHDD: 0,
+  useSimplifiedMontage: true,
+  montageTotalKwp: 240,
+  montageDCShare: 80,
+  montageACShare: 20,
+  includeCompensatory: false,
+  compensatoryMethod: 'manual_total',
+  compensatoryTotal: 0,
+  includeOrdnance: false,
+  ordnanceMethod: 'manual_total',
+  ordnanceTotal: 0,
+  includeFireProtection: false,
+  fireProtectionTotal: 0,
+  fenceLengthM: 0,
+  fenceCostPerM: 15,
+  roadLengthM: 0,
+  roadCostPerM: 50,
+  gridConcept: 'transfer_station',
+  includeMVRoute: true,
+  includeUGS: true,
+  includeTrafo: true,
+  includeHVSubstation: false,
+  includeFeedInCell: false,
+  mvRouteLengthM: 1000,
+  mvCombinedStationThresholdM: 200,
+  mvSharePrivateRoad: 0,
+  mvSharePublicRoad: 100,
+  mvShareOpenTrench: 100,
+  mvShareAsphalt: 0,
+  mvSharePressDrilling: 0,
+  mvShareHDD: 0,
+  mvEasementCost: 0,
+  mvPlanningCost: 0,
+  mvManualRouteComplexityFactor: 1.0,
+  privateLandCostPerM: 0,
+  selectedMVCableId: 'mv_cable_na2xs(f)2y_3x1x240mm²_rm25_1830_kv',
+  mvCableRuns: 1,
+  selectedTrafoId: 'mv_transformer_transformare_trafo_1,250_kva_vs',
+  selectedUGSId: 'mv_station_ügs_bis_5_mw',
+  selectedKombiId: 'mv_kombi_transformare_kombi_trafo_1,250_kva_üs',
+  selectedHVSubstationId: 'hv_substation_umspannwerk_40_mw',
+  selectedBessSystemId: '',
+  selectedBessInverterId: '',
+  bessInstallationCost: 0,
+  selectedCertId: 'cert_certificate_anlagenzertifikat_typ_b,_small_certificate',
+  certComponentB: 3350,
+  certComponentC: 6000,
+  opexMethod: 'per_mwp',
+  opexPerMWpYear: 12000,
+  opexPercentCapex: 1.5,
+  manualOpexTotal: 0,
   discountRate: 0.05,
-  bessCapexPerMWh: 250000,
-  bessCapexPerMW: 150000,
+  contingencyPercent: 5
 };
 
 // ─── Inverter Manufacturer Constraints ───────────────────────────────────────
