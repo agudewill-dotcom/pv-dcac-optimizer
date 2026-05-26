@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, AlertTriangle } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Cpu, CheckCircle, XCircle } from 'lucide-react';
 import type { CombinedScenarioResult } from '../types';
 
 interface Props {
@@ -71,6 +71,66 @@ export const ExecutiveSummary: React.FC<Props> = ({ scenarios, selectedRatio }) 
           )}
         </div>
       </div>
+
+      {combined.inverterComparison && combined.inverterComparison.length > 0 && (
+        <div className="bg-slate-900/40 border border-slate-700/50 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Cpu className="text-cyan-400" size={20} />
+            <h3 className="text-lg font-bold text-white">Manufacturer Constraint Impact</h3>
+          </div>
+          <p className="text-sm text-slate-300 mb-6">
+            For the selected configuration (<strong>{combined.dcMWp.toFixed(1)} MWp DC</strong> and <strong>{combined.acMWac.toFixed(1)} MWac Export</strong>), here is the required physical inverter capacity based on manufacturer-specific maximum DC oversizing limits:
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {combined.inverterComparison.map(inv => (
+              <div key={inv.productName} className={`bg-slate-800/50 border rounded-xl p-4 ${inv.isFeasible ? 'border-emerald-500/30' : 'border-red-500/30'}`}>
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <div className="text-sm font-bold text-white">{inv.manufacturer}</div>
+                    <div className="text-[10px] text-slate-400">{inv.productName}</div>
+                  </div>
+                  <div className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-slate-900 text-slate-300 border-slate-700">
+                    Max {inv.maxOversizingRatio.toFixed(2)}×
+                  </div>
+                </div>
+
+                <div className="space-y-2 mb-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400">Required Inv. AC</span>
+                    <span className="text-sm font-bold text-white">{inv.requiredInverterAcMW.toFixed(2)} MWac</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400">Inverter Units</span>
+                    <span className="text-sm font-bold text-white">{inv.numberOfUnits}</span>
+                  </div>
+                  {inv.additionalInverterAcMW > 0 && inv.isFeasible && (
+                    <div className="flex justify-between items-center text-amber-400">
+                      <span className="text-xs">+ Excess AC vs Export</span>
+                      <span className="text-sm font-bold">{inv.additionalInverterAcMW.toFixed(2)} MWac</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-2 border-t border-white/5">
+                    <span className="text-xs text-slate-400">Total Inv. CAPEX</span>
+                    <span className="text-sm font-bold text-white">{(inv.inverterCapex / 1000).toFixed(0)} k€</span>
+                  </div>
+                  {inv.additionalCapexVsBaseline > 0 && (
+                    <div className="flex justify-between items-center text-amber-400">
+                      <span className="text-xs">+ Extra CAPEX</span>
+                      <span className="text-sm font-bold">+{(inv.additionalCapexVsBaseline / 1000).toFixed(0)} k€</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className={`text-xs flex items-center gap-1.5 ${inv.isFeasible ? (inv.additionalInverterAcMW > 0 ? 'text-amber-400' : 'text-emerald-400') : 'text-red-400'}`}>
+                  {inv.isFeasible ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                  <span>{inv.statusMessage}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {techOptimal && (

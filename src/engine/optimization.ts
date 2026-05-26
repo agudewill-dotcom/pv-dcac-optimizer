@@ -7,13 +7,14 @@
 
 import type {
   ProjectConfig, PowerConfig, PriceConfig, CapexConfig, BessConfig,
-  Orientation, ScenarioResult, CombinedScenarioResult
+  Orientation, ScenarioResult, CombinedScenarioResult, InverterConfig
 } from '../types';
 import { DEFAULT_RATIO_STEPS } from '../types';
 import { generateProfile } from './generationProfiles';
 import { simulateClipping } from './clippingEngine';
 import { calculateRevenue } from './revenueEngine';
 import { simulateBess } from './bessEngine';
+import { calculateInverterRequirements, compareManufacturers } from './inverterEngine';
 
 function runSingleScenario(
   profile: number[],
@@ -23,7 +24,8 @@ function runSingleScenario(
   project: ProjectConfig,
   price: PriceConfig,
   capex: CapexConfig,
-  bess: BessConfig
+  bess: BessConfig,
+  inverter: InverterConfig
 ): ScenarioResult {
   const clipping = simulateClipping(profile, dcMWp, acMWac, project);
   const revenue = calculateRevenue(
@@ -64,18 +66,40 @@ function runSingleScenario(
   const totalLifetimeRevenueMarket = revenue.lifetimeRevenueMarket + bessRevenueMarket;
   const totalLifetimeRevenueTariff = revenue.lifetimeRevenueTariff + bessRevenueTariff;
 
+  // Inverter manufacturer constraint calculations
+  let inverterResult = undefined;
+  if (inverter.enabled) {
+    const selectedProduct = inverter.products.find(p => p.id === inverter.selectedProductId);
+    if (selectedProduct) {
+      inverterResult = calculateInverterRequirements(dcMWp, acMWac, selectedProduct);
+    }
+  }
+
   let totalCapex: number | undefined;
   let npv: number | undefined;
   let simplePaybackYears: number | undefined;
   let annualCashflows: number[] | undefined;
 
   if (capex.enabled) {
-    totalCapex = dcMWp * capex.capexPerMWpDC + acMWac * capex.capexPerMWacAC;
+    // DC CAPEX is always based on DC capacity
+    let capexCalc = dcMWp * capex.capexPerMWpDC;
+    
+    // AC CAPEX: if inverter constraints are enabled and we have a result,
+    // use the actual installed inverter AC capacity for AC-side CAPEX
+    if (inverter.enabled && inverterResult) {
+      capexCalc += inverterResult.inverterCapex;
+    } else {
+      capexCalc += acMWac * capex.capexPerMWacAC;
+    }
+
+    // BESS CAPEX
     if (bess.duration !== 'none') {
       const durationHours = bess.duration === '4h' ? 4 : 2;
       const bessCapacity = bess.powerMW * durationHours;
-      totalCapex += bess.powerMW * capex.bessCapexPerMW + bessCapacity * capex.bessCapexPerMWh;
+      capexCalc += bess.powerMW * capex.bessCapexPerMW + bessCapacity * capex.bessCapexPerMWh;
     }
+
+    totalCapex = capexCalc;
 
     const annualOpex = (dcMWp + acMWac) / 2 * capex.opexPerMWYear;
     annualCashflows = [];
@@ -158,6 +182,8 @@ function runSingleScenario(
     hourlyInjected: clipping.hourlyInjected,
     hourlyClipped: clipping.hourlyClipped,
     hourlyBessDischarge: bessResult.hourlyBessDischarge,
+
+    inverterResult,
   };
 }
 
@@ -196,6 +222,7 @@ export function runOptimization(
   price: PriceConfig,
   capex: CapexConfig,
   bess: BessConfig,
+  inverter: InverterConfig,
 ): CombinedScenarioResult[] {
   
   const baseProfile = project.pvgisProfile && project.pvgisProfile.length >= 8760 
@@ -245,8 +272,15 @@ export function runOptimization(
   }
 
   const combinedResults: CombinedScenarioResult[] = scenarios.map(({ dcMWp, acMWac, ratio }) => {
-    const p50 = runSingleScenario(p50Profile, dcMWp, acMWac, ratio, project, price, capex, bess);
-    const p90 = runSingleScenario(p90Profile, dcMWp, acMWac, ratio, project, price, capex, bess);
+    const p50 = runSingleScenario(p50Profile, dcMWp, acMWac, ratio, project, price, capex, bess, inverter);
+    const p90 = runSingleScenario(p90Profile, dcMWp, acMWac, ratio, project, price, capex, bess, inverter);
+    
+    // Manufacturer comparison: calculate inverter requirements for all products at this ratio
+    let inverterComparison: CombinedScenarioResult['inverterComparison'] = undefined;
+    if (inverter.enabled && inverter.compareManufacturers && inverter.products.length > 1) {
+      inverterComparison = compareManufacturers(dcMWp, acMWac, inverter.products);
+    }
+
     return {
       dcAcRatio: Math.round(ratio * 100) / 100,
       dcMWp: Math.round(dcMWp * 100) / 100,
@@ -254,6 +288,7 @@ export function runOptimization(
       p50,
       p90,
       isRobustOptimum: false,
+      inverterComparison,
     };
   });
 

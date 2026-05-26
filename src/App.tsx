@@ -11,15 +11,16 @@ import { RevenueLogic } from './components/RevenueLogic';
 import { EconomicsScreening } from './components/EconomicsScreening';
 import { Recommendation } from './components/Recommendation';
 import { BessPanel } from './components/BessPanel';
+import { InverterPanel } from './components/InverterPanel';
 import { runOptimization } from './engine/optimization';
 import { getDefaultPriceProfile } from './engine/priceData';
 import { exportResultsPDF } from './engine/pdfExport';
 import { fetchPVGISProfile } from './engine/generationProfiles';
 import type {
-  ProjectConfig, PowerConfig, PriceConfig, CapexConfig, Orientation, GridConfig, ProductionCase, BessConfig
+  ProjectConfig, PowerConfig, PriceConfig, CapexConfig, Orientation, GridConfig, ProductionCase, BessConfig, InverterConfig
 } from './types';
 import {
-  DEFAULT_PROJECT, DEFAULT_POWER, DEFAULT_PRICE, DEFAULT_CAPEX, DEFAULT_BESS, DEFAULT_GRID_CONFIG,
+  DEFAULT_PROJECT, DEFAULT_POWER, DEFAULT_PRICE, DEFAULT_CAPEX, DEFAULT_BESS, DEFAULT_GRID_CONFIG, DEFAULT_INVERTER_CONFIG,
 } from './types';
 
 // ─── Tab definitions ────────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ function App() {
   const [capex, setCapex] = useState<CapexConfig>(DEFAULT_CAPEX);
   const [bess, setBess] = useState<BessConfig>(DEFAULT_BESS);
   const [grid, setGrid] = useState<GridConfig>(DEFAULT_GRID_CONFIG);
+  const [inverter, setInverter] = useState<InverterConfig>(DEFAULT_INVERTER_CONFIG);
   const [selectedRatio, setSelectedRatio] = useState<number>(DEFAULT_POWER.dcAcRatio);
   const [productionCase, setProductionCase] = useState<ProductionCase>('p50');
 
@@ -75,19 +77,19 @@ function App() {
   const scenarios = useMemo(() => {
     try {
       if (power.dcCapacityMWp <= 0 || power.acCapacityMWac <= 0) return [];
-      return runOptimization(project, power, orientation, price, capex, bess);
+      return runOptimization(project, power, orientation, price, capex, bess, inverter);
     } catch (err) {
       console.error('Optimization error:', err);
       return [];
     }
-  }, [project, power, orientation, price, capex, bess]);
+  }, [project, power, orientation, price, capex, bess, inverter]);
 
   // ─── Validation warnings ───────────────────────────────────────────────────
   const warnings: string[] = [];
   if (power.dcCapacityMWp <= 0) warnings.push('DC capacity must be > 0.');
   if (power.acCapacityMWac <= 0) warnings.push('AC capacity must be > 0.');
   if (power.dcAcRatio < 1.0) warnings.push('DC/AC ratio < 1.0 is unusual for utility-scale PV.');
-  if (power.dcAcRatio > 1.6) warnings.push('DC/AC ratio > 1.6 will cause very high clipping losses.');
+  if (power.dcAcRatio > 2.0) warnings.push('DC/AC ratio > 2.0 exceeds typical manufacturer limits.');
   if (project.degradationRate > 0.01) warnings.push('Degradation rate above 1%/a is unusually high.');
 
   const selected = scenarios.find(s => s.dcAcRatio === selectedRatio) || scenarios[0] || null;
@@ -256,13 +258,21 @@ function App() {
             )}
 
             {activeTab === 'technical' && (
-              <div className="mt-8 space-y-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                <div className="space-y-6 mt-0">
-                  <PowerConfigPanel config={power} onChange={setPower} />
+              <div className="mt-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  <div className="space-y-6">
+                    <PowerConfigPanel config={power} onChange={setPower} />
+                  </div>
+                  <div className="space-y-6">
+                    <BessPanel config={bess} onChange={setBess} />
+                  </div>
                 </div>
-                <div className="space-y-6 mt-0">
-                  <BessPanel config={bess} onChange={setBess} />
-                </div>
+                <InverterPanel 
+                  config={inverter} 
+                  onChange={setInverter} 
+                  dcCapacityMWp={power.dcCapacityMWp} 
+                  targetExportAcMW={power.acCapacityMWac} 
+                />
               </div>
             )}
 

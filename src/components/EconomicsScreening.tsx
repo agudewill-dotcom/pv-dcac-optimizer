@@ -1,5 +1,5 @@
 import React from 'react';
-import { Briefcase, AlertCircle, Info } from 'lucide-react';
+import { Briefcase, AlertCircle, Info, Cpu } from 'lucide-react';
 import { CapexPanel } from './CapexPanel';
 import { GridConfigPanel } from './GridConfigPanel';
 import type { CapexConfig, GridConfig, CombinedScenarioResult, ProjectConfig } from '../types';
@@ -84,6 +84,40 @@ export const EconomicsScreening: React.FC<Props> = ({ capexConfig, setCapex, gri
                 <p>Avoid calling this a final project valuation. The outputs here screen the capital efficiency of overbuilding DC relative to a fixed AC limit.</p>
               </div>
             </div>
+
+            {current.inverterResult && (
+              <div className="bg-indigo-900/10 border border-indigo-500/20 rounded-xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Cpu className="text-indigo-400" size={18} />
+                  <h3 className="text-sm font-bold text-indigo-400">Inverter CAPEX Impact</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-800/50 rounded-lg p-3 border border-white/5">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Total Inverter CAPEX</div>
+                    <div className="text-xl font-bold text-white">{(current.inverterResult.inverterCapex / 1000).toFixed(1)} k€</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-lg p-3 border border-white/5">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Number of Units</div>
+                    <div className="text-xl font-bold text-white">{current.inverterResult.numberOfUnits}</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-lg p-3 border border-white/5">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">CAPEX per MWp DC</div>
+                    <div className="text-xl font-bold text-white">{((current.inverterResult.inverterCapex / 1000) / current.dcMWp).toFixed(1)} k€/MWp</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-lg p-3 border border-white/5">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">CAPEX per MWac</div>
+                    <div className="text-xl font-bold text-white">{((current.inverterResult.inverterCapex / 1000) / current.acMWac).toFixed(1)} k€/MWac</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-lg p-3 border border-white/5 col-span-2">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Additional CAPEX vs Baseline</div>
+                    <div className={`text-xl font-bold ${current.inverterResult.additionalCapexVsBaseline > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                      {current.inverterResult.additionalCapexVsBaseline > 0 ? '+' : ''}
+                      {(current.inverterResult.additionalCapexVsBaseline / 1000).toFixed(1)} k€
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-slate-900/40 border border-slate-700/50 rounded-xl p-8 flex flex-col items-center justify-center text-center">

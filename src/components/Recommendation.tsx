@@ -1,5 +1,5 @@
 import React from 'react';
-import { Target, ArrowUpCircle, ArrowDownCircle, Info } from 'lucide-react';
+import { Target, ArrowUpCircle, ArrowDownCircle, Info, AlertTriangle } from 'lucide-react';
 import type { CombinedScenarioResult } from '../types';
 
 interface Props {
@@ -9,9 +9,9 @@ interface Props {
 export const Recommendation: React.FC<Props> = ({ scenarios }) => {
   if (scenarios.length === 0) return null;
 
-  const techOptimal = scenarios.find(s => s.p50.isOptimalTechnical)?.p50;
-  const econOptimal = scenarios.find(s => s.p50.isOptimalEconomic)?.p50;
-  const balancedOptimal = scenarios.find(s => s.p50.isOptimalMarginal)?.p50;
+  const techOptimal = scenarios.find(s => s.p50.isOptimalTechnical);
+  const econOptimal = scenarios.find(s => s.p50.isOptimalEconomic);
+  const balancedOptimal = scenarios.find(s => s.p50.isOptimalMarginal);
   const robustOptimal = scenarios.find(s => s.isRobustOptimum);
 
   const bestOptimum = robustOptimal || econOptimal || balancedOptimal || techOptimal;
@@ -37,8 +37,21 @@ export const Recommendation: React.FC<Props> = ({ scenarios }) => {
               <li>The marginal revenue per additional MWp remains above the required threshold.</li>
               <li>Additional production is predominantly injected rather than clipped.</li>
               <li>Capture price degradation from cannibalization is within an acceptable range.</li>
+              {bestOptimum.p50.inverterResult && <li>Manufacturer-specific inverter constraints and CAPEX impacts are optimized.</li>}
             </ul>
           </div>
+
+          {bestOptimum.p50.inverterResult && bestOptimum.p50.inverterResult.additionalInverterAcMW > 0 && (
+            <div className="bg-amber-500/10 p-4 rounded-lg border border-amber-500/30 flex items-start gap-3">
+              <AlertTriangle className="text-amber-400 mt-0.5" size={16} />
+              <div>
+                <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-1">Manufacturer Oversizing Limit Reached</h4>
+                <p className="text-sm text-amber-300">
+                  A configuration that is technically possible with a 200% oversizing limit (like SMA) requires significantly more installed inverter capacity with the currently selected manufacturer ({bestOptimum.p50.inverterResult.manufacturer} at {bestOptimum.p50.inverterResult.maxOversizingRatio.toFixed(2)}×). The export limit remains unchanged, but the installed component base and CAPEX increase.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -70,7 +83,7 @@ export const Recommendation: React.FC<Props> = ({ scenarios }) => {
           <h3 className="text-sm font-bold text-blue-300 uppercase tracking-wider">Key Sensitivities</h3>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div>
             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">P50 / P90 Robustness</h4>
             <p className="text-xs text-slate-300">
@@ -87,6 +100,12 @@ export const Recommendation: React.FC<Props> = ({ scenarios }) => {
             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">CAPEX Impact</h4>
             <p className="text-xs text-slate-300">
               The simplified NPV includes DC-side CAPEX scaling. An increase in module prices would shift the optimum towards a lower DC/AC ratio.
+            </p>
+          </div>
+          <div>
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Inverter Constraints</h4>
+            <p className="text-xs text-slate-300">
+              Manufacturer max oversizing limits can materially change the economic attractiveness. Some products require overbuilding the inverter AC capacity to support the target DC.
             </p>
           </div>
         </div>

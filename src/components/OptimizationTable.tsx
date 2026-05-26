@@ -78,6 +78,7 @@ export const OptimizationTable: React.FC<Props> = ({
 
   const baseP50 = scenarios[0].p50;
   const lifetimeYears = baseP50.lifetimeGeneratedMWh / baseP50.annualGeneratedMWh || 30; // Approx back-calculation
+  const hasInverterResult = scenarios[0].p50.inverterResult !== undefined;
 
   return (
     <div className="bg-slate-900/40 rounded-xl border border-slate-700/50 overflow-hidden animate-fade-in shadow-xl">
@@ -97,6 +98,15 @@ export const OptimizationTable: React.FC<Props> = ({
               </th>
               <th className="px-4 py-3 text-right">DC (MWp)</th>
               <th className="px-4 py-3 text-right">AC (MWac)</th>
+              {hasInverterResult && (
+                <>
+                  <th className="px-4 py-3 text-right">Req. Inv. AC</th>
+                  <th className="px-4 py-3 text-right">Inv. Units</th>
+                  <th className="px-4 py-3 text-right">Inv. CAPEX (k€)</th>
+                  <th className="px-4 py-3 text-right">Δ Inv. CAPEX</th>
+                  <th className="px-4 py-3 text-center">Feasibility</th>
+                </>
+              )}
               <th className="px-4 py-3 text-right">Gen MWh (Avg)</th>
               <th className="px-4 py-3 text-right">Inj MWh (Avg)</th>
               <th className="px-4 py-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort('clippingPercent')}>
@@ -145,6 +155,33 @@ export const OptimizationTable: React.FC<Props> = ({
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-slate-300">{s.dcMWp.toFixed(2)}</td>
                   <td className="px-4 py-3 text-right font-mono text-slate-400">{s.acMWac.toFixed(2)}</td>
+                  {s.p50.inverterResult && (
+                    <>
+                      <td className="px-4 py-3 text-right font-mono text-slate-300">
+                        {s.p50.inverterResult.requiredInverterAcMW.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-300">
+                        {s.p50.inverterResult.numberOfUnits}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-300">
+                        {fmtK(s.p50.inverterResult.inverterCapex)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-300">
+                        {fmtK(s.p50.inverterResult.additionalCapexVsBaseline)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border inline-flex items-center gap-1 ${
+                          s.p50.inverterResult.feasibilityStatus === 'feasible' ? 'bg-emerald-400/10 border-emerald-400/30 text-emerald-400' :
+                          s.p50.inverterResult.feasibilityStatus === 'feasible_additional_capacity' ? 'bg-amber-400/10 border-amber-400/30 text-amber-400' :
+                          'bg-red-400/10 border-red-400/30 text-red-400'
+                        }`}>
+                          {s.p50.inverterResult.feasibilityStatus === 'feasible' ? 'Feasible' :
+                           s.p50.inverterResult.feasibilityStatus === 'feasible_additional_capacity' ? '+Inv. Cap.' :
+                           'Not Feasible'}
+                        </span>
+                      </td>
+                    </>
+                  )}
                   <td className="px-4 py-3 text-right font-mono text-slate-300">{fmt(current.lifetimeGeneratedMWh / lifetimeYears)}</td>
                   <td className="px-4 py-3 text-right font-mono text-emerald-400">{fmt(current.lifetimeInjectedMWh / lifetimeYears)}</td>
                   <td className={`px-4 py-3 text-right font-mono font-bold ${

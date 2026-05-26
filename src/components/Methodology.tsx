@@ -83,6 +83,12 @@ export const Methodology: React.FC = () => {
             <span className="font-mono text-[10px] bg-slate-800 px-1 py-0.5 rounded text-purple-300">Marginal CAPEX = Δ DC_Capacity × CAPEX_Per_MWp_DC</span><br/>
             The economic screening evaluates the capital efficiency of adding more DC modules to a fixed AC grid connection. It calculates whether the marginal revenue pays back the marginal CAPEX.
           </Section>
+
+          <Section title="Inverter Oversizing & Component Count">
+            <span className="font-mono text-[10px] bg-slate-800 px-1 py-0.5 rounded text-cyan-300">Required Inv. AC = DC_Capacity / Manufacturer_Max_Oversizing</span><br/>
+            <span className="font-mono text-[10px] bg-slate-800 px-1 py-0.5 rounded text-cyan-300 mt-1 inline-block">Actual Installed AC = ceil(Required Inv. AC / Unit_Capacity) × Unit_Capacity</span><br/>
+            Manufacturer constraints dictate the minimum physical inverter capacity required. The project may be limited to a 15 MWac grid export, but a Huawei inverter (max 133% oversizing) might require 22.5 MWac installed for a 30 MWp DC array. Clipping uses the target export AC, but component count and CAPEX use the actual installed AC.
+          </Section>
       </div>
 
       <div className="md:col-span-2 border-t border-white/10 pt-4 mt-2 px-5 pb-5">

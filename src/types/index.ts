@@ -129,6 +129,9 @@ export interface ScenarioResult {
   hourlyInjected?: number[];     // 8760 values
   hourlyClipped?: number[];      // 8760 values
   hourlyBessDischarge?: number[]; // 8760 values
+
+  // Inverter manufacturer constraint results
+  inverterResult?: InverterResult;
 }
 
 export interface CombinedScenarioResult {
@@ -138,6 +141,7 @@ export interface CombinedScenarioResult {
   p50: ScenarioResult;
   p90: ScenarioResult;
   isRobustOptimum: boolean;
+  inverterComparison?: InverterResult[];  // When compare manufacturers is on
 }
 
 // ─── Full App State ──────────────────────────────────────────────────────────
@@ -156,7 +160,10 @@ export interface AppState {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 export const HOURS_PER_YEAR = 8760;
-export const DEFAULT_RATIO_STEPS = [1.00, 1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.45, 1.50];
+export const DEFAULT_RATIO_STEPS = [
+  1.00, 1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.45, 1.50,
+  1.55, 1.60, 1.65, 1.70, 1.75, 1.80, 1.85, 1.90, 1.95, 2.00,
+];
 
 export const DEFAULT_PROJECT: ProjectConfig = {
   name: 'Utility-Scale Solar PV',
@@ -206,4 +213,72 @@ export const DEFAULT_CAPEX: CapexConfig = {
   discountRate: 0.05,
   bessCapexPerMWh: 250000,
   bessCapexPerMW: 150000,
+};
+
+// ─── Inverter Manufacturer Constraints ───────────────────────────────────────
+
+export interface InverterProduct {
+  id: string;
+  manufacturer: string;
+  productName: string;
+  unitAcCapacityMW: number;         // AC capacity per inverter unit (MW)
+  maxDcAcOversizingRatio: number;   // e.g. 2.00 for SMA, 1.33 for Huawei
+  capexPerUnit?: number;            // Optional EUR per unit
+  capexPerMWac?: number;            // Optional EUR per MWac installed
+  notes: string;
+}
+
+export interface InverterConfig {
+  enabled: boolean;
+  selectedProductId: string;
+  products: InverterProduct[];
+  compareManufacturers: boolean;
+}
+
+export interface InverterResult {
+  manufacturer: string;
+  productName: string;
+  maxOversizingRatio: number;
+  targetExportAcMW: number;
+  requiredInverterAcMW: number;
+  numberOfUnits: number;
+  actualInstalledInverterAcMW: number;
+  additionalInverterAcMW: number;
+  projectDcExportRatio: number;
+  inverterLoadingRatio: number;
+  inverterCapex: number;
+  additionalCapexVsBaseline: number;
+  isFeasible: boolean;
+  feasibilityStatus: 'feasible' | 'feasible_additional_capacity' | 'not_feasible';
+  statusMessage: string;
+}
+
+export const DEFAULT_INVERTER_PRODUCTS: InverterProduct[] = [
+  {
+    id: 'sma_default',
+    manufacturer: 'SMA',
+    productName: 'Sunny Central UP (placeholder)',
+    unitAcCapacityMW: 4.6,
+    maxDcAcOversizingRatio: 2.00,
+    capexPerUnit: undefined,
+    capexPerMWac: 45_000,
+    notes: 'SMA products can be oversized up to 200%',
+  },
+  {
+    id: 'huawei_default',
+    manufacturer: 'Huawei',
+    productName: 'SUN2000-330KTL (placeholder)',
+    unitAcCapacityMW: 0.330,
+    maxDcAcOversizingRatio: 1.33,
+    capexPerUnit: undefined,
+    capexPerMWac: 35_000,
+    notes: 'Huawei products can be oversized up to 133%',
+  },
+];
+
+export const DEFAULT_INVERTER_CONFIG: InverterConfig = {
+  enabled: false,
+  selectedProductId: 'sma_default',
+  products: DEFAULT_INVERTER_PRODUCTS,
+  compareManufacturers: false,
 };
