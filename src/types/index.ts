@@ -62,6 +62,16 @@ export interface CapexConfig {
   bessCapexPerMW: number;        // EUR/MW power electronics
 }
 
+export interface CapexBreakdown {
+  dcCapex: number;
+  acCapex: number;
+  inverterCapex: number;
+  gridHvCapex: number;
+  gridMvCapex: number;
+  bessStorageCapex: number;
+  bessPowerCapex: number;
+}
+
 // ─── Scenario Result (one DC/AC ratio point) ─────────────────────────────────
 export interface ScenarioResult {
   dcAcRatio: number;
@@ -114,6 +124,8 @@ export interface ScenarioResult {
 
   // Optional economics
   totalCapex?: number;
+  capexBreakdown?: CapexBreakdown;
+  annualOpex?: number;
   npv?: number;
   simplePaybackYears?: number;
   annualCashflows?: number[];

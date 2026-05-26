@@ -77,7 +77,7 @@ function App() {
   const scenarios = useMemo(() => {
     try {
       if (power.dcCapacityMWp <= 0 || power.acCapacityMWac <= 0) return [];
-      return runOptimization(project, power, orientation, price, capex, bess, inverter);
+      return runOptimization(project, power, orientation, price, capex, grid, bess, inverter);
     } catch (err) {
       console.error('Optimization error:', err);
       return [];
@@ -297,6 +297,8 @@ function App() {
                 gridConfig={grid} 
                 setGrid={setGrid} 
                 scenario={selected} 
+                scenarios={scenarios}
+                selectedRatio={selectedRatio}
                 projectConfig={project}
               />
             )}

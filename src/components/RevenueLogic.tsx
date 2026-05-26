@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, HelpCircle, AlertTriangle } from 'lucide-react';
+import { DollarSign, HelpCircle, Info } from 'lucide-react';
 import { PriceConfigPanel } from './PriceConfig';
 import type { PriceConfig } from '../types';
 import { getPriceStats } from '../engine/priceData';
@@ -72,12 +72,12 @@ export const RevenueLogic: React.FC<Props> = ({ priceConfig, onChange }) => {
           </div>
 
           {isSample && priceConfig.revenueMode !== 'tariff' && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex gap-3">
-              <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={20} />
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex gap-3">
+              <Info className="text-blue-400 shrink-0 mt-0.5" size={20} />
               <div>
-                <h4 className="text-sm font-bold text-amber-400">Illustrative Price Data Used</h4>
-                <p className="text-xs text-amber-300/80 mt-1">
-                  Sample price profile used. This is illustrative and not based on live market data. For bankable results, upload a custom price vector.
+                <h4 className="text-sm font-bold text-blue-400">Data status: Historical 2024 DE-LU price profile</h4>
+                <p className="text-xs text-blue-300/80 mt-1">
+                  Source: SMARD / Energy-Charts
                 </p>
               </div>
             </div>

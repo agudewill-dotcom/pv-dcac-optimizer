@@ -6,7 +6,7 @@
  */
 
 import type {
-  ProjectConfig, PowerConfig, PriceConfig, CapexConfig, BessConfig,
+  ProjectConfig, PowerConfig, PriceConfig, CapexConfig, BessConfig, GridConfig,
   Orientation, ScenarioResult, CombinedScenarioResult, InverterConfig
 } from '../types';
 import { DEFAULT_RATIO_STEPS } from '../types';
@@ -24,6 +24,7 @@ function runSingleScenario(
   project: ProjectConfig,
   price: PriceConfig,
   capex: CapexConfig,
+  grid: GridConfig,
   bess: BessConfig,
   inverter: InverterConfig
 ): ScenarioResult {
@@ -80,28 +81,46 @@ function runSingleScenario(
   let simplePaybackYears: number | undefined;
   let annualCashflows: number[] | undefined;
 
+  let capexBreakdown = undefined;
+  let annualOpexVal = undefined;
+
   if (capex.enabled) {
-    // DC CAPEX is always based on DC capacity
-    let capexCalc = dcMWp * capex.capexPerMWpDC;
+    const dcCapex = dcMWp * capex.capexPerMWpDC;
+    let acCapex = 0;
+    let inverterCapex = 0;
     
-    // AC CAPEX: if inverter constraints are enabled and we have a result,
-    // use the actual installed inverter AC capacity for AC-side CAPEX
     if (inverter.enabled && inverterResult) {
-      capexCalc += inverterResult.inverterCapex;
+      inverterCapex = inverterResult.inverterCapex;
     } else {
-      capexCalc += acMWac * capex.capexPerMWacAC;
+      acCapex = acMWac * capex.capexPerMWacAC;
     }
 
-    // BESS CAPEX
+    let bessStorageCapex = 0;
+    let bessPowerCapex = 0;
     if (bess.duration !== 'none') {
       const durationHours = bess.duration === '4h' ? 4 : 2;
       const bessCapacity = bess.powerMW * durationHours;
-      capexCalc += bess.powerMW * capex.bessCapexPerMW + bessCapacity * capex.bessCapexPerMWh;
+      bessPowerCapex = bess.powerMW * capex.bessCapexPerMW;
+      bessStorageCapex = bessCapacity * capex.bessCapexPerMWh;
     }
 
-    totalCapex = capexCalc;
+    const gridHvCapex = grid.hvBaseCostKEur * 1000;
+    const gridMvCapex = grid.mvBaseCostKEur * 1000;
+
+    capexBreakdown = {
+      dcCapex,
+      acCapex,
+      inverterCapex,
+      gridHvCapex,
+      gridMvCapex,
+      bessStorageCapex,
+      bessPowerCapex
+    };
+
+    totalCapex = dcCapex + acCapex + inverterCapex + gridHvCapex + gridMvCapex + bessStorageCapex + bessPowerCapex;
 
     const annualOpex = (dcMWp + acMWac) / 2 * capex.opexPerMWYear;
+    annualOpexVal = annualOpex;
     annualCashflows = [];
     let cumulativeCF = -totalCapex;
     let npvCalc = -totalCapex;
@@ -174,6 +193,8 @@ function runSingleScenario(
     annualBessRecoveredMWh: bessResult.annualRecoveredMWh,
 
     totalCapex,
+    capexBreakdown,
+    annualOpex: annualOpexVal,
     npv,
     simplePaybackYears,
     annualCashflows,
@@ -221,6 +242,7 @@ export function runOptimization(
   orientation: Orientation,
   price: PriceConfig,
   capex: CapexConfig,
+  grid: GridConfig,
   bess: BessConfig,
   inverter: InverterConfig,
 ): CombinedScenarioResult[] {
@@ -272,8 +294,8 @@ export function runOptimization(
   }
 
   const combinedResults: CombinedScenarioResult[] = scenarios.map(({ dcMWp, acMWac, ratio }) => {
-    const p50 = runSingleScenario(p50Profile, dcMWp, acMWac, ratio, project, price, capex, bess, inverter);
-    const p90 = runSingleScenario(p90Profile, dcMWp, acMWac, ratio, project, price, capex, bess, inverter);
+    const p50 = runSingleScenario(p50Profile, dcMWp, acMWac, ratio, project, price, capex, grid, bess, inverter);
+    const p90 = runSingleScenario(p90Profile, dcMWp, acMWac, ratio, project, price, capex, grid, bess, inverter);
     
     // Manufacturer comparison: calculate inverter requirements for all products at this ratio
     let inverterComparison: CombinedScenarioResult['inverterComparison'] = undefined;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, Info, AlertTriangle, DollarSign, CheckCircle2 } from 'lucide-react';
+import { Download, Info, DollarSign, CheckCircle2 } from 'lucide-react';
 import type { PriceConfig, ProjectConfig, CombinedScenarioResult, ProductionCase } from '../types';
 import { getPriceStats } from '../engine/priceData';
 import { MarginalRevenueChart, CumulativeCashflowChart } from './Charts';
@@ -85,13 +85,17 @@ export const RevenueAnalytics: React.FC<Props> = ({ priceConfig, projectConfig, 
       ) : null}
 
       {/* ─── SANITY CHECKS BANNER ────────────────────────────────────────────── */}
-      {isSample && priceConfig.revenueMode !== 'tariff' && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex gap-3">
-          <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={20} />
+      {priceConfig.revenueMode !== 'tariff' && (
+        <div className="border rounded-xl p-4 flex gap-3 mb-6 bg-blue-500/10 border-blue-500/30">
+          <Info className="shrink-0 mt-0.5 text-blue-400" size={20} />
           <div>
-            <h4 className="text-sm font-bold text-amber-400">Illustrative Price Data Used</h4>
-            <p className="text-xs text-amber-300/80 mt-1">
-              Sample price profile (SMARD 2024 DE-LU) is active. This is illustrative and not based on your specific project node. Upload a custom CSV for bankable results.
+            <h4 className="text-sm font-bold text-blue-400">
+              {isSample ? 'Data status: Historical 2024 DE-LU price profile' : 'Historical market data used'}
+            </h4>
+            <p className="text-xs mt-1 text-blue-300/80">
+              {isSample 
+                ? 'Source: SMARD / Energy-Charts' 
+                : 'Using uploaded CSV price profile for calculations.'}
             </p>
           </div>
         </div>
@@ -120,6 +124,14 @@ export const RevenueAnalytics: React.FC<Props> = ({ priceConfig, projectConfig, 
               <div className="text-sm font-medium text-slate-300">{stats.averagePrice.toFixed(2)} EUR/MWh</div>
             </div>
             <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase" title="Reflects actual price achieved, capturing cannibalization effects">Capture Price</div>
+              <div className="text-sm font-medium text-blue-400">{selected.capturePriceMarket.toFixed(2)} EUR/MWh</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase">Market Capture Factor</div>
+              <div className="text-sm font-medium text-emerald-400">{(selected.marketCaptureFactor * 100).toFixed(1)}%</div>
+            </div>
+            <div>
               <div className="text-[10px] font-bold text-slate-500 uppercase">Min / Max Price</div>
               <div className="text-sm font-medium text-slate-300">{stats.minPrice.toFixed(1)} / {stats.maxPrice.toFixed(1)} EUR/MWh</div>
             </div>
@@ -132,6 +144,53 @@ export const RevenueAnalytics: React.FC<Props> = ({ priceConfig, projectConfig, 
               <div className="text-sm font-medium text-slate-300">{stats.missingHours} h</div>
             </div>
           </div>
+        </div>
+
+        {/* ─── SAMPLE TIMESTEP CALCULATION ─────────────────────────────────────── */}
+        <div className="glass-card p-5 lg:col-span-2">
+          <details className="group">
+            <summary className="text-sm font-bold text-white cursor-pointer select-none flex justify-between items-center outline-none">
+              Show sample timestep calculation
+              <span className="text-slate-500 group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead>
+                  <tr className="border-b border-white/10 text-slate-500">
+                    <th className="py-2 pr-4">Timestamp (h)</th>
+                    <th className="py-2 pr-4">Generated MW</th>
+                    <th className="py-2 pr-4">Injected MW (after clip)</th>
+                    <th className="py-2 pr-4">Clipped MW</th>
+                    <th className="py-2 pr-4">Price EUR/MWh</th>
+                    <th className="py-2">Revenue EUR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 5 }).map((_, idx) => {
+                    const h = 4000 + idx;
+                    const gen = selected.hourlyGenerated?.[h] || 0;
+                    const inj = selected.hourlyInjected?.[h] || 0;
+                    const clip = Math.max(0, gen - inj);
+                    const price = priceConfig.priceProfile[h] || 0;
+                    const rev = inj * price;
+                    return (
+                      <tr key={h} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <td className="py-1.5 pr-4">{h + 1}</td>
+                        <td className="py-1.5 pr-4">{gen.toFixed(3)}</td>
+                        <td className="py-1.5 pr-4">{inj.toFixed(3)}</td>
+                        <td className="py-1.5 pr-4">{clip.toFixed(3)}</td>
+                        <td className="py-1.5 pr-4">{price.toFixed(2)}</td>
+                        <td className="py-1.5 text-emerald-400">{rev.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="text-[10px] text-slate-500 mt-2">
+                Showing hours 4001–4005 to illustrate clipping and revenue mechanics. Revenue = Injected MW × Price EUR/MWh.
+              </p>
+            </div>
+          </details>
         </div>
 
         <div className="lg:col-span-2">
