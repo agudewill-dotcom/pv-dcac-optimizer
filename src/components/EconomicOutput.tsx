@@ -46,6 +46,25 @@ export const EconomicOutput: React.FC<Props> = ({ capexConfig, scenario, scenari
               <h3 className="text-sm font-bold text-white mb-4">Detailed CAPEX Breakdown (Selected Ratio: {scenario?.dcAcRatio.toFixed(2)}×)</h3>
               
               <div className="space-y-2 mb-6">
+                 {/* Group: Inverter */}
+                 <div className="text-xs font-bold text-slate-500 uppercase mt-4 mb-1 border-b border-white/10 pb-1">Inverter & Power Conversion</div>
+                 {current.capexBreakdown.comboName && (
+                   <div className="flex justify-between text-xs text-indigo-300 py-1 border-b border-white/5">
+                     <span>Selected Combo</span>
+                     <span className="font-medium">{current.capexBreakdown.comboName}</span>
+                   </div>
+                 )}
+                 <div className="flex justify-between text-xs text-slate-300 py-1 border-b border-white/5">
+                   <span>Inverters (Standalone)</span>
+                   <span className="font-medium text-white">{(current.capexBreakdown.inverterCapex / 1e6).toFixed(3)} M€</span>
+                 </div>
+                 {current.capexBreakdown.inverterIncludedInCombo && (
+                   <div className="flex justify-between text-[10px] text-indigo-400 py-1 border-b border-white/5">
+                     <span>(Inverter cost included in Transformer/Station combo)</span>
+                     <span></span>
+                   </div>
+                 )}
+
                  {/* Group: LV / Plant */}
                  <div className="text-xs font-bold text-slate-500 uppercase mt-4 mb-1 border-b border-white/10 pb-1">LV / Plant-Side</div>
                  <div className="flex justify-between text-xs text-slate-300 py-1 border-b border-white/5">
@@ -112,13 +131,6 @@ export const EconomicOutput: React.FC<Props> = ({ capexConfig, scenario, scenari
                  <div className="flex justify-between text-xs text-slate-300 py-1 border-b border-white/5">
                    <span>HV Substation / Feed-In</span>
                    <span className="font-medium text-white">{(current.capexBreakdown.hvSubstationCapex / 1e6).toFixed(3)} M€</span>
-                 </div>
-
-                 {/* Group: Inverter */}
-                 <div className="text-xs font-bold text-slate-500 uppercase mt-4 mb-1 border-b border-white/10 pb-1">Inverter</div>
-                 <div className="flex justify-between text-xs text-slate-300 py-1 border-b border-white/5">
-                   <span>Inverters</span>
-                   <span className="font-medium text-white">{(current.capexBreakdown.inverterCapex / 1e6).toFixed(3)} M€</span>
                  </div>
 
                  {/* Group: BESS */}

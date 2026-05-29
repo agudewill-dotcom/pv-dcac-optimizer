@@ -121,6 +121,7 @@ export interface DetailedCapexConfig {
   includeMVRoute: boolean;
   includeUGS: boolean;
   includeTrafo: boolean;
+  useKombistation: 'yes' | 'no' | 'suggested';
   includeHVSubstation: boolean;
   includeFeedInCell: boolean;
   manualGridOverrideTotal?: number;
@@ -144,9 +145,14 @@ export interface DetailedCapexConfig {
   selectedMVCableId: string;
   mvCableRuns: number;
   selectedTrafoId: string;
+  selectedTrafoInverterComboId: string;
   selectedUGSId: string;
   selectedKombiId: string;
   selectedHVSubstationId: string;
+
+  // C. Inverter Override (Economic Output)
+  manualInverterOverride: boolean;
+  overrideInverterConfig?: InverterConfig;
 
   // D. BESS
   selectedBessSystemId: string;
@@ -198,6 +204,10 @@ export interface DetailedCapexBreakdown {
   groupInverter: number;
   groupBess: number;
   groupOther: number;
+
+  // Inverter Details
+  inverterIncludedInCombo: boolean;
+  comboName?: string;
 }
 
 // ─── Scenario Result (one DC/AC ratio point) ─────────────────────────────────
@@ -390,6 +400,7 @@ export const DEFAULT_DETAILED_CAPEX: DetailedCapexConfig = {
   includeMVRoute: true,
   includeUGS: true,
   includeTrafo: true,
+  useKombistation: 'no',
   includeHVSubstation: false,
   includeFeedInCell: false,
   mvRouteLengthM: 1000,
@@ -403,14 +414,16 @@ export const DEFAULT_DETAILED_CAPEX: DetailedCapexConfig = {
   mvEasementCost: 0,
   mvPlanningCost: 0,
   mvManualRouteComplexityFactor: 1.0,
-  privateLandCostPerM: 0,
-  selectedMVCableId: 'mv_cable_na2xs(f)2y_3x1x240mm²_rm25_1830_kv',
+  privateLandCostPerM: 10,
+  selectedMVCableId: 'mv_cable_na2xs(f)2y_3x1x120mm²_rm/25_12/20_kv',
   mvCableRuns: 1,
-  selectedTrafoId: 'mv_transformer_transformare_trafo_1,250_kva_vs',
-  selectedUGSId: 'mv_station_ügs_bis_5_mw',
-  selectedKombiId: 'mv_kombi_transformare_kombi_trafo_1,250_kva_üs',
-  selectedHVSubstationId: 'hv_substation_umspannwerk_40_mw',
-  selectedBessSystemId: '',
+  selectedTrafoId: 'mv_transformer_transformare_trafo_station_bis_3_mw',
+  selectedTrafoInverterComboId: 'none',
+  selectedUGSId: 'mv_station_ugs_bis_5_mw',
+  selectedKombiId: 'mv_kombi_transformare_kombi_trafo_630_kva_us',
+  selectedHVSubstationId: 'hv_substation_einspeisezelle_e.dis',
+  manualInverterOverride: false,
+  selectedBessSystemId: 'bess_container_2_mwh',
   selectedBessInverterId: '',
   bessInstallationCost: 0,
   selectedCertId: 'cert_certificate_anlagenzertifikat_typ_b,_small_certificate',

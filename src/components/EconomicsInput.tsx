@@ -210,7 +210,6 @@ export const EconomicsInput: React.FC<Props> = ({ capexConfig, setCapex, catalog
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Grid Connection Concept</label>
             <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.gridConcept} onChange={(e) => update('gridConcept', e.target.value)}>
               <option value="transfer_station">MV Transfer Station (Übergabestation)</option>
-              <option value="combined_station">Combined Station (Kombistation)</option>
               <option value="hv_substation">HV Substation (Umspannwerk)</option>
               <option value="edis_cell">E.dis Feed-in Cell</option>
               <option value="custom">Custom</option>
@@ -224,33 +223,74 @@ export const EconomicsInput: React.FC<Props> = ({ capexConfig, setCapex, catalog
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">MV Cable Length (m)</label>
-              <input type="number" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.mvRouteLengthM} onChange={(e) => update('mvRouteLengthM', Number(e.target.value))} />
-              {capexConfig.mvRouteLengthM <= capexConfig.mvCombinedStationThresholdM && (
-                <div className="text-xs text-amber-400 mt-1">Cable route &le; {capexConfig.mvCombinedStationThresholdM}m. A combined station may be possible.</div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">MV Cable Type</label>
+              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedMVCableId} onChange={(e) => update('selectedMVCableId', e.target.value)}>
+                {getItems('MV', 'Cable').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
+              </select>
+           </div>
+           <div className="grid grid-cols-2 gap-2">
+              <div>
+                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">MV Route Length (m)</label>
+                 <input type="number" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.mvRouteLengthM} onChange={(e) => update('mvRouteLengthM', Number(e.target.value))} />
+              </div>
+              <div>
+                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">MV Cable Runs</label>
+                 <input type="number" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.mvCableRuns} onChange={(e) => update('mvCableRuns', Number(e.target.value))} />
+              </div>
+           </div>
+
+           <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Use Kombistation</label>
+              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.useKombistation} onChange={(e) => update('useKombistation', e.target.value)}>
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+                <option value="suggested">Suggested (Auto based on route)</option>
+              </select>
+              {capexConfig.useKombistation === 'suggested' && capexConfig.mvRouteLengthM <= capexConfig.mvCombinedStationThresholdM && (
+                 <div className="text-xs text-green-400 mt-1">Route &le; 200m. Kombistation will be used.</div>
+              )}
+              {capexConfig.useKombistation === 'suggested' && capexConfig.mvRouteLengthM > capexConfig.mvCombinedStationThresholdM && (
+                 <div className="text-xs text-amber-400 mt-1">Route &gt; 200m. Kombistation will NOT be used.</div>
               )}
            </div>
+
            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Transformer</label>
-              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedTrafoId} onChange={(e) => update('selectedTrafoId', e.target.value)}>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Transformer / Inverter Combo</label>
+              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedTrafoInverterComboId} onChange={(e) => update('selectedTrafoInverterComboId', e.target.value)}>
+                {getItems('InverterCombo', 'Combo').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
+              </select>
+           </div>
+           
+           <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Separate Transformer</label>
+              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedTrafoId} onChange={(e) => update('selectedTrafoId', e.target.value)} disabled={capexConfig.selectedTrafoInverterComboId !== 'combo_none'}>
                 {getItems('MV', 'Transformer').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
               </select>
            </div>
+
            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Transfer Station (ÜGS)</label>
-              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedUGSId} onChange={(e) => update('selectedUGSId', e.target.value)}>
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                 <input type="checkbox" checked={capexConfig.includeUGS} onChange={(e) => update('includeUGS', e.target.checked)} className="rounded border-slate-700 bg-slate-900" />
+                 Select Transfer Station (ÜGS)
+              </label>
+              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedUGSId} onChange={(e) => update('selectedUGSId', e.target.value)} disabled={!capexConfig.includeUGS}>
                 {getItems('MV', 'Station').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
               </select>
            </div>
+           
            <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Kombistation</label>
-              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedKombiId} onChange={(e) => update('selectedKombiId', e.target.value)}>
+              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedKombiId} onChange={(e) => update('selectedKombiId', e.target.value)} disabled={capexConfig.useKombistation === 'no' || (capexConfig.useKombistation === 'suggested' && capexConfig.mvRouteLengthM > capexConfig.mvCombinedStationThresholdM)}>
                 {getItems('MV', 'Kombi').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
               </select>
            </div>
+           
            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select HV Substation</label>
-              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedHVSubstationId} onChange={(e) => update('selectedHVSubstationId', e.target.value)}>
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                 <input type="checkbox" checked={capexConfig.includeHVSubstation} onChange={(e) => update('includeHVSubstation', e.target.checked)} className="rounded border-slate-700 bg-slate-900" />
+                 Select HV Substation
+              </label>
+              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.selectedHVSubstationId} onChange={(e) => update('selectedHVSubstationId', e.target.value)} disabled={!capexConfig.includeHVSubstation}>
                 {getItems('HV', 'Substation').map(i => <option key={i.id} value={i.id}>{i.label} ({fmtCurrency(i.defaultValue)} {i.unit})</option>)}
               </select>
            </div>

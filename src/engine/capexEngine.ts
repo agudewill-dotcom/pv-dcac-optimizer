@@ -122,16 +122,39 @@ export function calculateDetailedCapex(
     }
   }
 
-  if (config.includeTrafo && config.gridConcept !== 'combined_station') {
-    transformerCapex = getVal(config.selectedTrafoId);
-  }
+  let comboName = undefined;
+  let inverterIncludedInCombo = false;
+  const combo = getItem(config.selectedTrafoInverterComboId);
 
-  if (config.includeUGS) {
-    if (config.gridConcept === 'combined_station' || (config.mvRouteLengthM <= config.mvCombinedStationThresholdM && config.gridConcept === 'transfer_station')) {
+  if (combo && combo.id !== 'combo_none' && combo.id !== 'none') {
+    comboName = combo.label;
+    inverterIncludedInCombo = combo.includesInverterCost || false;
+    
+    // The combo cost goes into transformerCapex
+    transformerCapex = getVal(combo.id);
+
+    // If combo includes MV station (like SMA MVPS), we don't add separate UGS/Kombi unless forced.
+    if (!combo.includesMVStationCost) {
+       // We still need a station if UGS or Kombi is enabled
+       if (config.useKombistation === 'yes') {
+         ugsKombiCapex = getVal(config.selectedKombiId);
+       } else if (config.includeUGS) {
+         ugsKombiCapex = getVal(config.selectedUGSId);
+       }
+    }
+  } else {
+    // Normal logic without Inverter-Combo
+    if (config.useKombistation === 'yes') {
       ugsKombiCapex = getVal(config.selectedKombiId);
-      transformerCapex = 0; // Kombi replaces separate trafo
+      // Kombi replaces separate trafo
+      transformerCapex = 0;
     } else {
-      ugsKombiCapex = getVal(config.selectedUGSId);
+      if (config.includeTrafo) {
+        transformerCapex = getVal(config.selectedTrafoId);
+      }
+      if (config.includeUGS) {
+        ugsKombiCapex = getVal(config.selectedUGSId);
+      }
     }
   }
 
@@ -152,7 +175,10 @@ export function calculateDetailedCapex(
   }
 
   // C. Inverter
-  // inverterCapex is passed in as a parameter
+  // inverterCapex is passed in as a parameter, but we nullify it if it's included in the combo
+  if (inverterIncludedInCombo) {
+    inverterCapex = 0;
+  }
 
   // D. BESS
   let bessCapex = 0;
@@ -205,6 +231,9 @@ export function calculateDetailedCapex(
     groupMvHvGrid,
     groupInverter,
     groupBess,
-    groupOther
+    groupOther,
+
+    inverterIncludedInCombo,
+    comboName
   };
 }
