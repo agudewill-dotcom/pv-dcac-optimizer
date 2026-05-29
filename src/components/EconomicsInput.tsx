@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Briefcase, Settings2, Shield, Zap, Battery, ChevronDown, ChevronUp, Cpu, BookOpen } from 'lucide-react';
-import type { DetailedCapexConfig, InverterConfig } from '../types';
+import type { DetailedCapexConfig } from '../types';
 import type { CostItem } from '../data/costCatalog';
 
 interface Props {
@@ -8,14 +8,6 @@ interface Props {
   setCapex: (c: DetailedCapexConfig) => void;
   catalog: CostItem[];
   setCatalog: (c: CostItem[]) => void;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  inverterConfig: InverterConfig;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  setInverter: (c: InverterConfig) => void;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  dcCapacityMWp: number;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  targetExportAcMW: number;
 }
 
 const Accordion = ({ title, icon: Icon, children, defaultOpen = false }: { title: string, icon: React.ElementType, children: React.ReactNode, defaultOpen?: boolean }) => {
@@ -45,15 +37,7 @@ export const EconomicsInput: React.FC<Props> = ({
   capexConfig, 
   setCapex, 
   catalog, 
-  setCatalog, 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  inverterConfig, 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  setInverter, 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  dcCapacityMWp, 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  targetExportAcMW 
+  setCatalog
 }) => {
   
   const update = (field: keyof DetailedCapexConfig, value: unknown) => {

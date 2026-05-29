@@ -308,10 +308,6 @@ function App() {
                 setCapex={setCapex} 
                 catalog={costCatalog} 
                 setCatalog={setCostCatalog} 
-                inverterConfig={inverter}
-                setInverter={setInverter}
-                dcCapacityMWp={power.dcCapacityMWp}
-                targetExportAcMW={power.acCapacityMWac}
               />
             )}
 
