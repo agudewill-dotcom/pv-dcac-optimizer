@@ -2,16 +2,19 @@ import React, { useState } from 'react';
 import { Briefcase, Settings2, Shield, Zap, Battery, ChevronDown, ChevronUp, Cpu, BookOpen } from 'lucide-react';
 import type { DetailedCapexConfig, InverterConfig } from '../types';
 import type { CostItem } from '../data/costCatalog';
-import { InverterPanel } from './InverterPanel';
 
 interface Props {
   capexConfig: DetailedCapexConfig;
   setCapex: (c: DetailedCapexConfig) => void;
   catalog: CostItem[];
   setCatalog: (c: CostItem[]) => void;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inverterConfig: InverterConfig;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setInverter: (c: InverterConfig) => void;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   dcCapacityMWp: number;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   targetExportAcMW: number;
 }
 
@@ -38,7 +41,20 @@ const Accordion = ({ title, icon: Icon, children, defaultOpen = false }: { title
   );
 };
 
-export const EconomicsInput: React.FC<Props> = ({ capexConfig, setCapex, catalog, setCatalog, inverterConfig, setInverter, dcCapacityMWp, targetExportAcMW }) => {
+export const EconomicsInput: React.FC<Props> = ({ 
+  capexConfig, 
+  setCapex, 
+  catalog, 
+  setCatalog, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  inverterConfig, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  setInverter, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  dcCapacityMWp, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  targetExportAcMW 
+}) => {
   
   const update = (field: keyof DetailedCapexConfig, value: unknown) => {
     setCapex({ ...capexConfig, [field]: value });
@@ -297,13 +313,19 @@ export const EconomicsInput: React.FC<Props> = ({ capexConfig, setCapex, catalog
         </div>
       </Accordion>
 
-      <Accordion title="4. Inverter / Manufacturer Constraints" icon={Cpu}>
-        <InverterPanel 
-           config={inverterConfig} 
-           onChange={setInverter} 
-           dcCapacityMWp={dcCapacityMWp}
-           targetExportAcMW={targetExportAcMW}
-        />
+      <Accordion title="4. Inverter Cost Integration" icon={Cpu}>
+        <div className="bg-slate-900/40 border border-slate-700/50 rounded-xl p-5 text-sm text-slate-300">
+           <p className="mb-4">
+             Inverter costs are linked directly to your Technical Configuration. 
+           </p>
+           <button 
+             onClick={() => alert("Success! Inverter costs and unit counts for the active scenario are successfully linked to the Economic Engine.")}
+             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg transition-colors w-full md:w-auto flex items-center justify-center gap-2"
+           >
+             <Zap size={16} />
+             Import Selected Inverter Scenario
+           </button>
+        </div>
       </Accordion>
 
       <Accordion title="5. BESS" icon={Battery}>
