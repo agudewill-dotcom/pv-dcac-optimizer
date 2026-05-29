@@ -15,7 +15,7 @@ interface Props {
   targetExportAcMW: number;
 }
 
-const Accordion = ({ title, icon: Icon, children, defaultOpen = false }: any) => {
+const Accordion = ({ title, icon: Icon, children, defaultOpen = false }: { title: string, icon: React.ElementType, children: React.ReactNode, defaultOpen?: boolean }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
     <div className="bg-slate-900/40 border border-slate-700/50 rounded-xl overflow-hidden mb-4">
@@ -40,7 +40,7 @@ const Accordion = ({ title, icon: Icon, children, defaultOpen = false }: any) =>
 
 export const EconomicsInput: React.FC<Props> = ({ capexConfig, setCapex, catalog, setCatalog, inverterConfig, setInverter, dcCapacityMWp, targetExportAcMW }) => {
   
-  const update = (field: keyof DetailedCapexConfig, value: any) => {
+  const update = (field: keyof DetailedCapexConfig, value: unknown) => {
     setCapex({ ...capexConfig, [field]: value });
   };
 
@@ -315,7 +315,7 @@ export const EconomicsInput: React.FC<Props> = ({ capexConfig, setCapex, catalog
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
            <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">OPEX Method</label>
-              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.opexMethod} onChange={(e) => update('opexMethod', e.target.value as any)}>
+              <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white" value={capexConfig.opexMethod} onChange={(e) => update('opexMethod', e.target.value as 'per_mwp' | 'percent_capex' | 'manual_total')}>
                 <option value="per_mwp">€/MWp/year</option>
                 <option value="percent_capex">% of CAPEX/year</option>
                 <option value="manual_total">Manual Total/year</option>

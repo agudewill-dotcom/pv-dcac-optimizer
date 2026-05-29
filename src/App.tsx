@@ -28,7 +28,7 @@ import {
 // ─── Tab definitions ────────────────────────────────────────────────────────
 type TabId = 'summary' | 'setup' | 'technical' | 'production' | 'revenue' | 'economics_input' | 'economics_output' | 'scenarios' | 'recommendation' | 'methodology';
 
-const TABS: { id: TabId; label: string; icon: any; short?: string; highlighted?: boolean }[] = [
+const TABS: { id: TabId; label: string; icon: React.ElementType; short?: string; highlighted?: boolean }[] = [
   { id: 'setup', label: '1. Project Setup', short: 'Setup', icon: BookOpen },
   { id: 'technical', label: '2. Technical Config', short: 'Technical', icon: Zap },
   { id: 'production', label: '3. Production & Clipping', short: 'Production', icon: BarChart3 },
@@ -77,8 +77,9 @@ function App() {
     try {
       const profile = await fetchPVGISProfile(project.lat, project.lon, orientation);
       setProject(prev => ({ ...prev, pvgisProfile: profile }));
-    } catch (err: any) {
-      setPvgisError(err.message || 'Failed to fetch from PVGIS');
+    } catch (err: unknown) {
+      const error = err as Error;
+      setPvgisError(error.message || 'Failed to fetch from PVGIS');
     } finally {
       setIsFetchingPVGIS(false);
     }

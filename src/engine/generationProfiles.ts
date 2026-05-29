@@ -306,7 +306,7 @@ export async function fetchPVGISProfile(lat: number, lon: number, orientation: O
     if (!data?.outputs?.hourly) throw new Error('Invalid PVGIS data format');
     
     // Convert W (per 1 kWp) to capacity factor (divide by 1000)
-    return data.outputs.hourly.map((h: any) => Math.min(1.0, Math.max(0, (h.P || 0) / 1000)));
+    return data.outputs.hourly.map((h: { P?: number }) => Math.min(1.0, Math.max(0, (h.P || 0) / 1000)));
   };
 
   switch (orientation) {

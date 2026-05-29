@@ -148,7 +148,7 @@ export const ProjectSetup: React.FC<Props> = ({ config, onChange }) => {
                 const p50: number[] = [];
                 const p90: number[] = [];
                 // Assuming CSV format: timestamp, p50_MW, p90_MW (skip header if present)
-                let startIdx = isNaN(parseFloat(lines[0].split(',')[1])) ? 1 : 0;
+                const startIdx = isNaN(parseFloat(lines[0].split(',')[1])) ? 1 : 0;
                 for (let i = startIdx; i < startIdx + 8760; i++) {
                   const cols = lines[i].split(',');
                   p50.push(parseFloat(cols[1]) || 0);

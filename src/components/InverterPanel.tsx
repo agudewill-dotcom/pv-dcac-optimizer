@@ -66,7 +66,7 @@ export const InverterPanel: React.FC<Props> = ({ config, onChange, dcCapacityMWp
   const selectManufacturer = (preset: InverterProduct) => {
     // Check if the preset already exists in products
     const existingIndex = config.products.findIndex(p => p.id === preset.id);
-    let products = [...config.products];
+    const products = [...config.products];
     if (existingIndex === -1) {
       products.push({ ...preset });
     } else {

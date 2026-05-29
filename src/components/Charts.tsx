@@ -194,7 +194,9 @@ export const CumulativeCashflowChart: React.FC<{ scenario: CombinedScenarioResul
         backgroundColor: 'rgba(16,185,129,0.1)',
         fill: true, tension: 0.1, pointRadius: 2,
         segment: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           borderColor: (ctx: any) => ctx.p1.parsed.y < 0 ? '#ef4444' : '#10b981',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           backgroundColor: (ctx: any) => ctx.p1.parsed.y < 0 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
         }
       },

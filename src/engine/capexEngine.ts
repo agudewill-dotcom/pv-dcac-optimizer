@@ -8,6 +8,7 @@ export function calculateDetailedCapex(
   _acMWacTarget: number,
   _installedInverterAcMWac: number,
   inverterCapex: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _numberOfInverters: number
 ): DetailedCapexBreakdown {
   
@@ -26,7 +27,7 @@ export function calculateDetailedCapex(
     if (config.isRootProtection) {
       selectedId = 'lv_mounting_root_protection__wurzelmanschetten__moor_uk';
     }
-    let ukCostPerKwp = getVal(selectedId);
+    const ukCostPerKwp = getVal(selectedId);
     ukCapex = dcMWp * 1000 * ukCostPerKwp;
   } else if (config.ukMethod === 'manual_kwp') {
     ukCapex = dcMWp * 1000 * config.manualUKKwp;
@@ -84,14 +85,14 @@ export function calculateDetailedCapex(
   }
 
   // A6. Adders
-  let compensatoryCapex = config.includeCompensatory ? config.compensatoryTotal : 0;
-  let ordnanceCapex = config.includeOrdnance ? config.ordnanceTotal : 0;
-  let fireProtectionCapex = config.includeFireProtection ? config.fireProtectionTotal : 0;
+  const compensatoryCapex = config.includeCompensatory ? config.compensatoryTotal : 0;
+  const ordnanceCapex = config.includeOrdnance ? config.ordnanceTotal : 0;
+  const fireProtectionCapex = config.includeFireProtection ? config.fireProtectionTotal : 0;
   
-  let fenceCapex = config.manualFenceTotal !== undefined && config.manualFenceTotal > 0 ? config.manualFenceTotal : (config.fenceLengthM * config.fenceCostPerM);
-  let roadCapex = config.manualRoadTotal !== undefined && config.manualRoadTotal > 0 ? config.manualRoadTotal : (config.roadLengthM * config.roadCostPerM);
+  const fenceCapex = config.manualFenceTotal !== undefined && config.manualFenceTotal > 0 ? config.manualFenceTotal : (config.fenceLengthM * config.fenceCostPerM);
+  const roadCapex = config.manualRoadTotal !== undefined && config.manualRoadTotal > 0 ? config.manualRoadTotal : (config.roadLengthM * config.roadCostPerM);
   
-  let otherCapex = 0;
+  const otherCapex = 0;
 
   // B. MV / HV Grid-Side
   let mvCableMaterialCapex = 0;
@@ -187,22 +188,22 @@ export function calculateDetailedCapex(
   bessCapex += config.bessInstallationCost;
 
   // E. Certification
-  let certificationCapex = getVal(config.selectedCertId) + config.certComponentB + config.certComponentC;
+  const certificationCapex = getVal(config.selectedCertId) + config.certComponentB + config.certComponentC;
 
-  let baseTotal = moduleCapex + ukCapex + lvCableMaterialCapex + lvRouteInstallationCapex + lvAssemblyCapex + 
+  const baseTotal = moduleCapex + ukCapex + lvCableMaterialCapex + lvRouteInstallationCapex + lvAssemblyCapex + 
     mvCableMaterialCapex + mvRouteInstallationCapex + transformerCapex + ugsKombiCapex + hvSubstationCapex + 
     inverterCapex + bessCapex + certificationCapex + fireProtectionCapex + compensatoryCapex + 
     ordnanceCapex + roadCapex + fenceCapex + otherCapex;
 
-  let contingencyCapex = baseTotal * (config.contingencyPercent / 100);
-  let totalCapex = baseTotal + contingencyCapex;
+  const contingencyCapex = baseTotal * (config.contingencyPercent / 100);
+  const totalCapex = baseTotal + contingencyCapex;
 
-  let groupLvPlant = moduleCapex + ukCapex + lvCableMaterialCapex + lvRouteInstallationCapex + lvAssemblyCapex +
+  const groupLvPlant = moduleCapex + ukCapex + lvCableMaterialCapex + lvRouteInstallationCapex + lvAssemblyCapex +
                      compensatoryCapex + ordnanceCapex + roadCapex + fenceCapex + fireProtectionCapex;
-  let groupMvHvGrid = mvCableMaterialCapex + mvRouteInstallationCapex + transformerCapex + ugsKombiCapex + hvSubstationCapex;
-  let groupInverter = inverterCapex;
-  let groupBess = bessCapex;
-  let groupOther = certificationCapex + otherCapex + contingencyCapex;
+  const groupMvHvGrid = mvCableMaterialCapex + mvRouteInstallationCapex + transformerCapex + ugsKombiCapex + hvSubstationCapex;
+  const groupInverter = inverterCapex;
+  const groupBess = bessCapex;
+  const groupOther = certificationCapex + otherCapex + contingencyCapex;
 
   return {
     moduleCapex,
